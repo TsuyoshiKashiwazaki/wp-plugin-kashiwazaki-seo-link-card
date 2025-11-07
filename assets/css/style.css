@@ -1,0 +1,411 @@
+/* Blockquote Reset - 引用タグのデフォルトスタイルをリセット */
+.kslc-blockquote {
+    margin: 0;
+    padding: 0;
+    border: none;
+    quotes: none;
+    font-style: normal;
+}
+
+/* CSS変数のデフォルト値 */
+:root {
+    /* ベースカラー */
+    --kslc-default-primary: #3498db;
+    --kslc-default-text: #000000;
+    --kslc-default-meta: #333333;
+    --kslc-default-bg: #ffffff;
+    --kslc-default-bg-hover: #f8f9fa;
+    --kslc-default-border: #e8e8e8;
+    
+    /* レイアウト */
+    --kslc-default-thumbnail-width: 200px;
+    --kslc-default-thumbnail-height: 140px;
+    --kslc-default-thumbnail-bg: #f5f5f5;
+    --kslc-default-border-radius: 6px;
+    --kslc-default-padding: 16px;
+    --kslc-default-margin-bottom: 20px;
+    
+    /* シャドウとアニメーション */
+    --kslc-default-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    --kslc-default-shadow-hover: 0 4px 10px rgba(0, 0, 0, 0.07);
+    --kslc-default-transition: all 0.2s ease-out;
+    
+    /* バッジ */
+    --kslc-badge-padding: 6px 10px;
+    --kslc-badge-font-size: 0.75em;
+    --kslc-badge-opacity-internal: 0.85;
+}
+
+/* Base Card Style */
+.kslc-card {
+    /* デフォルト値を使用（テーマで上書き可能） */
+    --kslc-primary-color: var(--kslc-default-primary);
+    --kslc-text-color: var(--kslc-default-text);
+    --kslc-meta-color: var(--kslc-default-meta);
+    --kslc-bg-color: var(--kslc-default-bg);
+    --kslc-bg-color-hover: var(--kslc-default-bg-hover);
+    --kslc-border-color: var(--kslc-default-border);
+    --kslc-thumbnail-width: var(--kslc-default-thumbnail-width);
+    --kslc-thumbnail-height: var(--kslc-default-thumbnail-height);
+    --kslc-thumbnail-bg: var(--kslc-default-thumbnail-bg);
+    --kslc-border-radius: var(--kslc-default-border-radius);
+    --kslc-padding: var(--kslc-default-padding);
+    --kslc-margin-bottom: var(--kslc-default-margin-bottom);
+    --kslc-shadow: var(--kslc-default-shadow);
+    --kslc-shadow-hover: var(--kslc-default-shadow-hover);
+    --kslc-transition: var(--kslc-default-transition);
+
+    background-color: var(--kslc-bg-color);
+    border: 1px solid var(--kslc-border-color);
+    border-radius: var(--kslc-border-radius);
+    margin: 0 0 var(--kslc-margin-bottom) 0;
+    box-shadow: var(--kslc-shadow);
+    transition: var(--kslc-transition);
+    position: relative;
+    font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden;
+    display: flex;
+}
+
+.kslc-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--kslc-shadow-hover);
+    border-color: var(--kslc-primary-color);
+}
+
+.kslc-link {
+    display: flex;
+    text-decoration: none !important;
+    color: var(--kslc-text-color);
+    align-items: flex-start;
+    border: none !important;
+    outline: none !important;
+    width: 100%;
+    min-height: 0;
+}
+
+.kslc-link:hover,
+.kslc-link:focus,
+.kslc-link:active,
+.kslc-link:visited {
+    text-decoration: none !important;
+    color: var(--kslc-text-color) !important;
+    border: none !important;
+    outline: none !important;
+}
+
+/* Thumbnail */
+.kslc-thumbnail {
+    flex-shrink: 0;
+    width: var(--kslc-thumbnail-width);
+    height: var(--kslc-thumbnail-height);
+    overflow: hidden;
+    position: relative;
+    margin: 0;
+    padding: 0;
+    line-height: 0;
+    background-color: var(--kslc-thumbnail-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.kslc-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;  /* アスペクト比を保ちながら領域を埋める */
+    object-position: center;
+    display: block;
+    margin: 0;
+    padding: 0;
+    border: none;
+    vertical-align: top;
+}
+
+.kslc-thumb-right .kslc-thumbnail {
+    border-left: 1px solid var(--kslc-border-color);
+}
+
+.kslc-thumb-left .kslc-thumbnail {
+    border-right: 1px solid var(--kslc-border-color);
+}
+
+
+/* Content */
+.kslc-content {
+    flex: 1;
+    padding: var(--kslc-padding);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-width: 0;
+    min-height: var(--kslc-thumbnail-height);  /* サムネイルの高さに合わせる */
+    box-sizing: border-box;
+}
+
+.kslc-title {
+    font-size: 1em;
+    font-weight: 700;
+    margin: 0 0 8px 0;
+    color: var(--kslc-primary-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+    line-height: 1.4;
+}
+
+.kslc-description {
+    font-size: 0.9em;
+    color: var(--kslc-meta-color);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin: 0 0 8px 0;
+    flex-grow: 1;
+    text-decoration: none !important;
+}
+
+.kslc-site-name {
+    font-size: 0.8em;
+    color: var(--kslc-meta-color);
+    opacity: 0.9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-decoration: none !important;
+    margin-top: auto;
+}
+
+
+/* No Thumbnail */
+.kslc-no-thumbnail .kslc-thumbnail {
+    display: none;
+}
+
+.kslc-no-thumbnail .kslc-content {
+    padding: calc(var(--kslc-padding) * 1.25);
+}
+
+
+/* External/Internal Link Badge */
+.kslc-external-link-badge,
+.kslc-internal-link-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    color: var(--kslc-default-bg);
+    padding: var(--kslc-badge-padding);
+    font-size: var(--kslc-badge-font-size);
+    border-bottom-left-radius: var(--kslc-border-radius);
+    font-weight: 700;
+    z-index: 2;
+    text-transform: uppercase;
+    white-space: nowrap;
+    line-height: 1;
+    background-color: var(--kslc-primary-color);
+}
+
+.kslc-internal-link-badge {
+    opacity: var(--kslc-badge-opacity-internal);
+}
+
+/* サムネイルがある場合は画像の右上に配置 */
+.kslc-card:not(.kslc-no-thumbnail) .kslc-external-link-badge,
+.kslc-card:not(.kslc-no-thumbnail) .kslc-internal-link-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 10;
+}
+
+/* サムネイルがない場合はカード全体の右上に配置 */
+.kslc-no-thumbnail .kslc-external-link-badge,
+.kslc-no-thumbnail .kslc-internal-link-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+}
+
+
+/* 内部リンクと外部リンクのスタイル調整 */
+.kslc-external-link {
+    /* 外部リンク特有のスタイル */
+}
+
+.kslc-internal-link {
+    /* 内部リンク特有のスタイル */
+}
+
+
+/* Thumbnail Position */
+.kslc-thumb-right .kslc-link {
+    flex-direction: row;
+}
+
+.kslc-thumb-left .kslc-link {
+    flex-direction: row-reverse;
+}
+
+
+/* Color Themes - 各テーマの特色を活かした配色 */
+.kslc-theme-red {
+    --kslc-primary-color: #d32f2f;
+    --kslc-text-color: #000000;
+    --kslc-meta-color: #424242;
+    --kslc-bg-color: #ffebee;
+    --kslc-border-color: #ffcdd2;
+}
+
+
+.kslc-theme-blue {
+    --kslc-primary-color: #1976d2;
+    --kslc-text-color: #000000;
+    --kslc-meta-color: #424242;
+    --kslc-bg-color: #e3f2fd;
+    --kslc-border-color: #bbdefb;
+}
+
+
+.kslc-theme-green {
+    --kslc-primary-color: #388e3c;
+    --kslc-text-color: #000000;
+    --kslc-meta-color: #424242;
+    --kslc-bg-color: #e8f5e8;
+    --kslc-border-color: #c8e6c9;
+}
+
+
+.kslc-theme-purple {
+    --kslc-primary-color: #7b1fa2;
+    --kslc-text-color: #000000;
+    --kslc-meta-color: #424242;
+    --kslc-bg-color: #f3e5f5;
+    --kslc-border-color: #e1bee7;
+}
+
+
+.kslc-theme-orange {
+    --kslc-primary-color: #f57c00;
+    --kslc-text-color: #000000;
+    --kslc-meta-color: #424242;
+    --kslc-bg-color: #fff3e0;
+    --kslc-border-color: #ffcc02;
+}
+
+
+.kslc-theme-gray {
+    --kslc-primary-color: #616161;
+    --kslc-text-color: #000000;
+    --kslc-meta-color: #424242;
+    --kslc-bg-color: #fafafa;
+    --kslc-border-color: #e0e0e0;
+}
+
+
+.kslc-theme-white {
+    --kslc-primary-color: #1976d2;
+    --kslc-text-color: #000000;
+    --kslc-meta-color: #424242;
+    --kslc-bg-color: #ffffff;
+    --kslc-border-color: #e0e0e0;
+}
+
+
+.kslc-theme-black {
+    --kslc-primary-color: #64b5f6;
+    --kslc-text-color: #ffffff;
+    --kslc-meta-color: #e0e0e0;
+    --kslc-bg-color: #212121;
+    --kslc-border-color: #424242;
+}
+
+.kslc-theme-black .kslc-thumbnail {
+    border-color: var(--kslc-border-color);
+}
+
+/* Custom Theme - カスタムカラー用のテーマ */
+.kslc-theme-custom {
+    /* インラインスタイルで全ての色変数が設定される */
+    --kslc-primary-color: #3498db;
+    --kslc-text-color: #000000;
+    --kslc-meta-color: #424242;
+    --kslc-bg-color: #ffffff;
+    --kslc-border-color: #e0e0e0;
+}
+
+
+
+/* Responsive */
+/* タブレットサイズでの調整 */
+@media (max-width: 768px) {
+
+    .kslc-external-link-badge,
+    .kslc-internal-link-badge {
+        padding: 5px 8px;
+        font-size: 0.7em;
+        border-bottom-left-radius: calc(var(--kslc-border-radius) - 1px);
+    }
+}
+
+@media (max-width: 480px) {
+    .kslc-card {
+        display: block !important;
+    }
+
+    /* PC版の画像位置設定を無効化してスマホ版では必ずテキスト上、画像下にする */
+    .kslc-link,
+    .kslc-thumb-right .kslc-link,
+    .kslc-thumb-left .kslc-link {
+        flex-direction: column !important;
+    }
+
+    .kslc-thumbnail {
+        width: 100% !important;
+        height: 180px !important;
+        border: none !important;
+        align-self: auto !important;
+        order: 2;
+        /* 画像を2番目（下）に配置 */
+    }
+
+    .kslc-content {
+        order: 1;
+        /* テキストを1番目（上）に配置 */
+        height: auto !important;
+        /* 固定高さを解除 */
+        padding: 16px;
+    }
+
+    .kslc-thumbnail img {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: auto !important;
+        object-fit: cover !important;
+    }
+
+    /* スマホでのテキスト表示調整 */
+    .kslc-title {
+        white-space: normal !important;
+        /* タイトルの改行を許可 */
+        line-height: 1.3;
+    }
+
+    .kslc-description {
+        -webkit-line-clamp: 3;
+        /* 説明文を3行まで表示 */
+    }
+
+    /* スマホでのバッジ調整 */
+    .kslc-external-link-badge,
+    .kslc-internal-link-badge {
+        padding: 4px 6px;
+        font-size: 0.6em;
+        border-bottom-left-radius: calc(var(--kslc-border-radius) - 2px);
+    }
+}
