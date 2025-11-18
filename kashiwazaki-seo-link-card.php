@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Kashiwazaki SEO Link Card
  * Plugin URI: https://www.tsuyoshikashiwazaki.jp
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: 柏崎剛 (Tsuyoshi Kashiwazaki)
  * Author URI: https://www.tsuyoshikashiwazaki.jp/profile/
  * Description: URLを記述するだけで、ページの情報を取得してカード形式で表示するプラグインです。
@@ -14,8 +14,13 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KSLC_PLUGIN_VERSION', '1.0.0' );
+define( 'KSLC_PLUGIN_VERSION', '1.0.1' );
 define( 'KSLC_PLUGIN_FILE', __FILE__ );
+
+// User-Agent for external requests (can be filtered)
+if ( ! defined( 'KSLC_USER_AGENT' ) ) {
+    define( 'KSLC_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' );
+}
 
 // デバッグ用：出力バッファリングエラーの追跡（無効化）
 function kslc_debug_output_buffer() {

@@ -146,8 +146,8 @@ function kslc_link_card_shortcode( $atts ) {
         }
     } else {
         // 外部リンクの場合（URLが指定されている）
-        $url = esc_url( $atts['url'] );
-        if ( empty( $url ) ) {
+        $url = sanitize_url( $atts['url'] );
+        if ( empty( $url ) || ! filter_var( $url, FILTER_VALIDATE_URL ) ) {
             return '';
         }
     }
@@ -155,7 +155,7 @@ function kslc_link_card_shortcode( $atts ) {
     $ogp_data = kslc_get_ogp_data( $url );
 
     if ( ! $ogp_data ) {
-        return '<a href="' . $url . '" target="_blank" rel="noopener">' . $url . '</a>';
+        return '<a href="' . esc_url($url) . '" target="_blank" rel="noopener">' . esc_html($url) . '</a>';
     }
 
     // カスタムタイトルが指定されている場合はそれを使用
@@ -167,7 +167,8 @@ function kslc_link_card_shortcode( $atts ) {
     $site_host = parse_url( home_url(), PHP_URL_HOST );
     $link_host = parse_url( $url, PHP_URL_HOST );
 
-    $is_external = $site_host !== $link_host;
+    // parse_url()が失敗した場合は外部リンクとして扱う
+    $is_external = ( $site_host === false || $link_host === false || $site_host !== $link_host );
 
     // 外部リンクと内部リンクで異なる設定を取得
     if ($is_external) {
@@ -258,7 +259,7 @@ function kslc_link_card_shortcode( $atts ) {
         $target_attr .= ' rel="' . esc_attr( $atts['rel'] ) . '"';
     }
 
-    $output .= '<a href="' . $url . '"' . $target_attr . ' class="kslc-link">';
+    $output .= '<a href="' . esc_url($url) . '"' . $target_attr . ' class="kslc-link">';
     $output .= '<div class="kslc-content">';
     $output .= '<div class="kslc-title">' . $title . '</div>';
     $output .= '<div class="kslc-description">' . $description . '</div>';

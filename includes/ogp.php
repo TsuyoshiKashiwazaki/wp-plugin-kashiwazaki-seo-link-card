@@ -88,7 +88,13 @@ function kslc_get_ogp_data( $url ) {
     // 内部リンクかどうかをチェック
     $site_host = parse_url( home_url(), PHP_URL_HOST );
     $link_host = parse_url( $url, PHP_URL_HOST );
-    $is_internal = $site_host === $link_host;
+
+    // parse_url()が失敗した場合は外部リンクとして扱う
+    if ( $site_host === false || $link_host === false ) {
+        $is_internal = false;
+    } else {
+        $is_internal = $site_host === $link_host;
+    }
 
     // 内部リンクの場合は、まずWordPressのデータベースから取得を試行
     if ( $is_internal ) {
@@ -102,7 +108,19 @@ function kslc_get_ogp_data( $url ) {
         // データベースから取得できない場合は、スクレイピングにフォールバック
     }
 
-    $response = wp_remote_get( $url, array( 'timeout' => 10 ) );
+    // User-Agent and headers can be filtered
+    $user_agent = apply_filters( 'kslc_request_user_agent', KSLC_USER_AGENT );
+    $timeout = apply_filters( 'kslc_request_timeout', 15 );
+    $headers = apply_filters( 'kslc_request_headers', array(
+        'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language' => 'ja,en-US;q=0.9,en;q=0.8',
+    ) );
+
+    $response = wp_remote_get( $url, array(
+        'timeout' => $timeout,
+        'user-agent' => $user_agent,
+        'headers' => $headers
+    ) );
 
     if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
         return false;
@@ -333,6 +351,10 @@ function kslc_relative_to_absolute_url( $relative_url, $base_url ) {
     }
 
     $base_parts = parse_url( $base_url );
+    if ( $base_parts === false || ! isset( $base_parts['scheme'] ) || ! isset( $base_parts['host'] ) ) {
+        return $relative_url;
+    }
+
     $base_scheme = $base_parts['scheme'];
     $base_host = $base_parts['host'];
     $base_path = isset($base_parts['path']) ? $base_parts['path'] : '/';

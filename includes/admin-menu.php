@@ -40,6 +40,27 @@ if ( defined( 'KSLC_PLUGIN_FILE' ) ) {
 
 
 function kslc_options_page_html() {
+    // キャッシュクリア処理
+    if ( isset( $_POST['kslc_clear_cache'] ) &&
+         check_admin_referer( 'kslc_clear_cache_action', 'kslc_clear_cache_nonce' ) ) {
+        global $wpdb;
+
+        // kslc_ogp_data_ で始まる全てのトランジェントを削除
+        $deleted_count = $wpdb->query(
+            "DELETE FROM {$wpdb->options}
+             WHERE option_name LIKE '_transient_kslc_ogp_data_%'
+             OR option_name LIKE '_transient_timeout_kslc_ogp_data_%'
+             OR option_name LIKE '_transient_kslc_page_title_%'
+             OR option_name LIKE '_transient_timeout_kslc_page_title_%'"
+        );
+
+        add_settings_error(
+            'kslc_messages',
+            'kslc_cache_cleared',
+            sprintf( '%d 個のキャッシュを削除しました。', $deleted_count ),
+            'updated'
+        );
+    }
     ?>
     <div class="wrap">
         <h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
@@ -425,11 +446,14 @@ function kslc_get_external_page_title($url) {
 // HTMLからtitleタグを直接抽出
 function kslc_scrape_title_from_html($url) {
     try {
+        // Use filtered values from ogp.php for consistency
+        $user_agent = apply_filters( 'kslc_request_user_agent', KSLC_USER_AGENT );
+
         // 出力を抑制して実行
         $response = wp_remote_get($url, [
             'timeout' => 5, // タイムアウトを短縮
             'redirection' => 3, // リダイレクト回数制限
-            'user-agent' => 'Mozilla/5.0 (compatible; WordPress; Kashiwazaki SEO Link Card)',
+            'user-agent' => $user_agent,
             'headers' => [
                 'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language' => 'ja,en-US;q=0.7,en;q=0.3',
