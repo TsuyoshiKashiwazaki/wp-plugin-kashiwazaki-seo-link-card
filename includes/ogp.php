@@ -155,6 +155,8 @@ function kslc_get_ogp_data( $url ) {
             if ( empty( $ogp_data['description'] ) && ! empty( $value ) ) {
                 $ogp_data[ $key ] = $value;
             }
+        } elseif ( $key === 'image' ) {
+             $ogp_data[ $key ] = kslc_relative_to_absolute_url( $value, $url );
         } else {
             $ogp_data[ $key ] = $value;
         }
