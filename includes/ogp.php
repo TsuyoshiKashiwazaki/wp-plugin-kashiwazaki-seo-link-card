@@ -12,6 +12,14 @@ function kslc_get_internal_post_data( $url ) {
         return false; // 投稿が見つからない場合
     }
 
+    return kslc_get_internal_post_data_by_id( $post_id );
+}
+
+function kslc_get_internal_post_data_by_id( $post_id ) {
+    if ( ! $post_id ) {
+        return false;
+    }
+
     $post = get_post( $post_id );
 
     if ( ! $post || $post->post_status !== 'publish' ) {
@@ -77,12 +85,22 @@ function kslc_get_internal_post_data( $url ) {
     return $ogp_data;
 }
 
-function kslc_get_ogp_data( $url ) {
+function kslc_get_ogp_data( $url, $post_id = 0 ) {
     $transient_key = 'kslc_ogp_data_' . md5( $url );
     $cached_data = get_transient( $transient_key );
 
     if ( false !== $cached_data ) {
         return $cached_data;
+    }
+
+    // post_idが直接指定されている場合は、それを使用して内部データを取得
+    if ( $post_id > 0 ) {
+        $internal_data = kslc_get_internal_post_data_by_id( $post_id );
+        if ( $internal_data ) {
+            $cache_period_hours = get_option( 'kslc_internal_cache_period', get_option( 'kslc_cache_period', 72 ) );
+            set_transient( $transient_key, $internal_data, $cache_period_hours * HOUR_IN_SECONDS );
+            return $internal_data;
+        }
     }
 
     // 内部リンクかどうかをチェック

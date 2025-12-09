@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2025-12-09
+
+### Fixed
+- post_id指定時に内部リンクデータが取得できないバグを修正（kslc_get_ogp_dataにpost_idを渡すように変更）
+- 相対URL（/path/to/page/）が処理できないバグを修正（home_url()で絶対URLに変換）
+- ブロックエディタでリンクタイプ切替時にデータが消えるバグを修正
+
+### Added
+- ブロックエディタに「設定をクリア」ボタンを追加
+
 ## [1.0.2] - 2025-12-08
 
 ### Fixed

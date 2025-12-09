@@ -145,14 +145,28 @@ function kslc_link_card_shortcode( $atts ) {
             $atts['title'] = get_the_title( $post_id );
         }
     } else {
-        // 外部リンクの場合（URLが指定されている）
-        $url = sanitize_url( $atts['url'] );
+        // URLが指定されている場合
+        $url = $atts['url'];
+
+        // 相対URLの場合は絶対URLに変換
+        if ( ! empty( $url ) && strpos( $url, '/' ) === 0 && strpos( $url, '//' ) !== 0 ) {
+            $url = home_url( $url );
+        }
+
+        $url = sanitize_url( $url );
         if ( empty( $url ) || ! filter_var( $url, FILTER_VALIDATE_URL ) ) {
             return '';
         }
+
+        // 内部リンクの場合はpost_idを取得
+        $site_host = parse_url( home_url(), PHP_URL_HOST );
+        $link_host = parse_url( $url, PHP_URL_HOST );
+        if ( $site_host === $link_host ) {
+            $post_id = url_to_postid( $url );
+        }
     }
 
-    $ogp_data = kslc_get_ogp_data( $url );
+    $ogp_data = kslc_get_ogp_data( $url, isset( $post_id ) ? $post_id : 0 );
 
     if ( ! $ogp_data ) {
         return '<a href="' . esc_url($url) . '" target="_blank" rel="noopener">' . esc_html($url) . '</a>';

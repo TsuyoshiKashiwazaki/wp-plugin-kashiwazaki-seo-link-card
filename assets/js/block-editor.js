@@ -131,19 +131,21 @@
             }, [selectedPostType]);
 
             const onChangeLinkType = (newType) => {
-                setAttributes({ 
-                    linkType: newType,
-                    url: '',
-                    postId: 0
-                });
-                setSelectedPost(null);
+                setAttributes({ linkType: newType });
             };
 
             const onChangeInternalInputType = (newType) => {
-                setAttributes({ 
-                    internalInputType: newType,
+                setAttributes({ internalInputType: newType });
+            };
+
+            const onClearSettings = () => {
+                setAttributes({
                     url: '',
-                    postId: 0
+                    postId: 0,
+                    title: '',
+                    target: '_self',
+                    rel: '',
+                    useBlank: false
                 });
                 setSelectedPost(null);
             };
@@ -416,7 +418,16 @@
                                 { label: 'nofollow noopener noreferrer', value: 'nofollow noopener noreferrer' }
                             ],
                             onChange: onChangeRel
-                        })
+                        }),
+
+                        el('div', { style: { marginTop: '20px', paddingTop: '15px', borderTop: '1px solid #ddd' } },
+                            el(Button, {
+                                isSecondary: true,
+                                isDestructive: true,
+                                onClick: onClearSettings,
+                                style: { width: '100%' }
+                            }, __('設定をクリア', 'kashiwazaki-seo-link-card'))
+                        )
                     )
                 ),
                 el(

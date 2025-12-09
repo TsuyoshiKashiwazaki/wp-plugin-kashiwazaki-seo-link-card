@@ -3,7 +3,7 @@
 ![WordPress](https://img.shields.io/badge/WordPress-5.5%2B-blue.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.0%2B-blue.svg)
 ![License](https://img.shields.io/badge/license-GPL--2.0%2B-green.svg)
-![Version](https://img.shields.io/badge/version-1.0.2-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.3-blue.svg)
 
 URLを記述するだけで、ページの情報を取得してカード形式で表示するWordPressプラグインです。OGPデータの自動取得、内部リンク最適化、クリックトラッキング、カスタマイズ可能なデザインなど、豊富な機能を搭載しています。
 
@@ -266,6 +266,12 @@ GPL-2.0 or later
 https://github.com/TsuyoshiKashiwazaki/wp-plugin-kashiwazaki-seo-link-card/issues
 
 ## 変更履歴
+
+### [1.0.3] - 2025-12-09
+- **修正**: post_id指定時に内部リンクデータが取得できないバグを修正
+- **修正**: 相対URL（/path/to/page/）が処理できないバグを修正
+- **修正**: リンクタイプ切替時にデータが消えるバグを修正
+- **追加**: ブロックエディタに「設定をクリア」ボタンを追加
 
 ### [1.0.2] - 2025-12-08
 - **修正**: 外部サイトの相対パスOGP画像の絶対パス変換処理を追加
