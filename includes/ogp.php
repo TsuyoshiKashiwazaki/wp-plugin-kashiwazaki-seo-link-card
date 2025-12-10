@@ -346,6 +346,12 @@ function kslc_find_fallback_image( $xpath, $dom, $base_url ) {
         return ['image' => $candidate_images[0]['url']];
     }
 
+    // 5. 最終フォールバック: Google Favicon API
+    $domain = parse_url($base_url, PHP_URL_HOST);
+    if ($domain) {
+        return ['image' => 'https://www.google.com/s2/favicons?domain=' . urlencode($domain) . '&sz=128'];
+    }
+
     return ['image' => ''];
 }
 

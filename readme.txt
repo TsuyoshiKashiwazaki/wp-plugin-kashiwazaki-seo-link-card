@@ -4,7 +4,7 @@ Donate link: https://tsuyoshikashiwazaki.jp/
 Tags: link, card, seo, shortcode, ogp
 Requires at least: 5.0
 Tested up to: 6.5
-Stable tag: 1.0.3
+Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,9 @@ Yes, it caches the fetched OGP data for 24 hours using WordPress transients to i
 1. Example of a link card.
 
 == Changelog ==
+
+= 1.0.4 =
+* Added: Google Favicon API fallback when OGP image is not available
 
 = 1.0.3 =
 * Fixed: Internal link data not retrieved when post_id is specified
