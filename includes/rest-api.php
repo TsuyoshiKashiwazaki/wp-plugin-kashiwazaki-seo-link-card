@@ -96,16 +96,28 @@ function kslc_get_all_posts( $request ) {
     $search = $request->get_param( 'search' );
     $post_type_filter = $request->get_param( 'post_type' );
     $per_page = $request->get_param( 'per_page' );
-    
+
     $all_posts = array();
-    
+
     // 取得する投稿タイプを決定
     if ( $post_type_filter === 'all' ) {
         $post_types = get_post_types( array( 'public' => true ), 'names' );
     } else {
         $post_types = array( $post_type_filter );
     }
-    
+
+    // 検索キーワードがある場合はタイトル部分一致検索用のフィルターを追加
+    $search_filter = null;
+    if ( ! empty( $search ) ) {
+        $search_filter = function( $where ) use ( $search ) {
+            global $wpdb;
+            $like = '%' . $wpdb->esc_like( $search ) . '%';
+            $where .= $wpdb->prepare( " AND {$wpdb->posts}.post_title LIKE %s", $like );
+            return $where;
+        };
+        add_filter( 'posts_where', $search_filter );
+    }
+
     foreach ( $post_types as $post_type ) {
         $args = array(
             'post_type'      => $post_type,
@@ -113,17 +125,14 @@ function kslc_get_all_posts( $request ) {
             'post_status'    => 'publish',
             'orderby'        => 'modified',
             'order'          => 'DESC',
+            'suppress_filters' => false, // フィルターを有効にする
         );
-        
-        if ( ! empty( $search ) ) {
-            $args['s'] = $search;
-        }
-        
+
         $posts = get_posts( $args );
-        
+
         foreach ( $posts as $post ) {
             $post_type_obj = get_post_type_object( $post->post_type );
-            
+
             $all_posts[] = array(
                 'id'    => $post->ID,
                 'title' => get_the_title( $post ),
@@ -133,12 +142,17 @@ function kslc_get_all_posts( $request ) {
             );
         }
     }
-    
+
+    // フィルターを解除（自分が追加したフィルターのみ）
+    if ( $search_filter ) {
+        remove_filter( 'posts_where', $search_filter );
+    }
+
     // 日付順でソート
     usort( $all_posts, function( $a, $b ) {
         return strtotime( $b['date'] ) - strtotime( $a['date'] );
     });
-    
+
     return rest_ensure_response( $all_posts );
 }
 

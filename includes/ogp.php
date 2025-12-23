@@ -180,6 +180,11 @@ function kslc_get_ogp_data( $url, $post_id = 0 ) {
         }
     }
 
+    // OGP画像が取得できた場合、有効性をチェック（200以外ならフォールバックへ）
+    if ( ! empty( $ogp_data['image'] ) && ! kslc_is_image_url_valid( $ogp_data['image'] ) ) {
+        // 無効なURLはクリアしてフォールバック処理に移行
+        $ogp_data['image'] = '';
+    }
 
     if ( empty( $ogp_data['image'] ) ) {
         $fallback_result = kslc_find_fallback_image( $xpath, $dom, $url );
@@ -369,6 +374,49 @@ function kslc_get_best_src($img) {
         }
     }
     return false;
+}
+
+/**
+ * 画像URLが有効かどうかをチェックする（HTTPステータス200かどうか）
+ *
+ * @param string $image_url チェックする画像URL
+ * @return bool 有効な場合はtrue、無効な場合はfalse
+ */
+function kslc_is_image_url_valid( $image_url ) {
+    if ( empty( $image_url ) ) {
+        return false;
+    }
+
+    // URLの形式をチェック
+    if ( ! filter_var( $image_url, FILTER_VALIDATE_URL ) ) {
+        return false;
+    }
+
+    // data: URIはそのまま有効とする
+    if ( strpos( $image_url, 'data:' ) === 0 ) {
+        return true;
+    }
+
+    // Google Favicon APIは常に有効とみなす（フォールバック用）
+    if ( strpos( $image_url, 'google.com/s2/favicons' ) !== false ) {
+        return true;
+    }
+
+    // HEADリクエストでステータスコードを確認（軽量）
+    $response = wp_remote_head( $image_url, array(
+        'timeout' => 5,
+        'redirection' => 3,
+        'user-agent' => KSLC_USER_AGENT,
+    ) );
+
+    if ( is_wp_error( $response ) ) {
+        return false;
+    }
+
+    $status_code = wp_remote_retrieve_response_code( $response );
+
+    // 200-299の範囲は成功
+    return $status_code >= 200 && $status_code < 300;
 }
 
 function kslc_relative_to_absolute_url( $relative_url, $base_url ) {

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2025-12-23
+
+### Added
+- OGP画像URLの有効性チェック機能（200以外のレスポンスの場合はフォールバック画像を使用）
+
+### Fixed
+- ブロックエディタの記事検索がタイトル部分一致で正しく動作するように修正（WordPressデフォルト検索からLIKE検索に変更）
+
 ## [1.0.4] - 2025-12-10
 
 ### Added
