@@ -169,7 +169,8 @@ function kslc_link_card_shortcode( $atts ) {
     $ogp_data = kslc_get_ogp_data( $url, isset( $post_id ) ? $post_id : 0 );
 
     if ( ! $ogp_data ) {
-        return '<a href="' . esc_url($url) . '" target="_blank" rel="noopener">' . esc_html($url) . '</a>';
+        // スクレイピング失敗時は簡易的なデコレーションパネルを出力
+        return kslc_render_fallback_card( $url, $atts );
     }
 
     // カスタムタイトルが指定されている場合はそれを使用
@@ -303,3 +304,130 @@ function kslc_link_card_shortcode( $atts ) {
 add_shortcode( 'kashiwazaki_seo_link_card', 'kslc_link_card_shortcode' );
 add_shortcode( 'linkcard', 'kslc_link_card_shortcode' );
 add_shortcode( 'nlink', 'kslc_link_card_shortcode' );
+
+/**
+ * スクレイピング失敗時の簡易デコレーションパネルを出力
+ *
+ * @param string $url リンク先URL
+ * @param array $atts ショートコード属性
+ * @return string HTMLカード
+ */
+function kslc_render_fallback_card( $url, $atts = [] ) {
+    // URLからドメインを取得
+    $parsed_url = parse_url( $url );
+    $domain = isset( $parsed_url['host'] ) ? $parsed_url['host'] : '';
+
+    // カスタムタイトルが指定されていればそれを使用、なければドメイン名
+    $title = ! empty( $atts['title'] ) ? esc_html( $atts['title'] ) : esc_html( $domain );
+
+    // 外部リンクとして扱う（スクレイピング失敗は外部リンクが多い）
+    $site_host = parse_url( home_url(), PHP_URL_HOST );
+    $is_external = ( $site_host !== $domain );
+
+    // 外部リンク用の設定を取得
+    if ( $is_external ) {
+        $color_theme = get_option( 'kslc_external_color_theme', 'blue' );
+        $show_thumbnail = get_option( 'kslc_external_show_thumbnail', true );
+        $thumbnail_position = get_option( 'kslc_external_thumbnail_position', 'right' );
+        $show_badge = get_option( 'kslc_external_show_badge', true );
+    } else {
+        $color_theme = get_option( 'kslc_internal_color_theme', 'gray' );
+        $show_thumbnail = get_option( 'kslc_internal_show_thumbnail', true );
+        $thumbnail_position = get_option( 'kslc_internal_thumbnail_position', 'right' );
+        $show_badge = get_option( 'kslc_internal_show_badge', true );
+    }
+
+    // Google Favicon APIでfaviconを取得
+    $favicon_url = 'https://www.google.com/s2/favicons?domain=' . urlencode( $domain ) . '&sz=128';
+
+    // カードクラスを構築
+    $card_class = 'kslc-card kslc-fallback-card';
+    $card_class .= $is_external ? ' kslc-external-link' : ' kslc-internal-link';
+    $card_class .= ' kslc-theme-' . esc_attr( $color_theme );
+    $card_class .= ' kslc-thumb-' . esc_attr( $thumbnail_position );
+
+    if ( ! $show_thumbnail ) {
+        $card_class .= ' kslc-no-thumbnail';
+    }
+
+    // サムネイルサイズを取得
+    $thumbnail_width = get_option( 'kslc_thumbnail_width', KSLC_DEFAULT_THUMBNAIL_WIDTH );
+    $thumbnail_height = get_option( 'kslc_thumbnail_height', KSLC_DEFAULT_THUMBNAIL_HEIGHT );
+
+    $inline_style = sprintf(
+        '--kslc-thumbnail-width: %dpx; --kslc-thumbnail-height: %dpx;',
+        $thumbnail_width,
+        $thumbnail_height
+    );
+
+    // カスタムカラーの場合
+    if ( $color_theme === 'custom' ) {
+        $custom_color = $is_external ?
+            get_option( 'kslc_external_custom_color', KSLC_DEFAULT_EXTERNAL_COLOR ) :
+            get_option( 'kslc_internal_custom_color', KSLC_DEFAULT_INTERNAL_COLOR );
+
+        $color_scheme = kslc_generate_color_scheme( $custom_color );
+
+        $inline_style .= sprintf(
+            ' --kslc-primary-color: %s; --kslc-text-color: %s; --kslc-meta-color: %s; --kslc-bg-color: %s; --kslc-border-color: %s;',
+            esc_attr( $color_scheme['primary'] ),
+            esc_attr( $color_scheme['text'] ),
+            esc_attr( $color_scheme['meta'] ),
+            esc_attr( $color_scheme['bg'] ),
+            esc_attr( $color_scheme['border'] )
+        );
+    }
+
+    // target属性とrel属性の処理
+    $target_attr = '';
+    if ( ! empty( $atts['target'] ) ) {
+        $target_attr = ' target="' . esc_attr( $atts['target'] ) . '"';
+        if ( $atts['target'] === '_blank' && empty( $atts['rel'] ) ) {
+            $target_attr .= ' rel="noopener"';
+        }
+    } elseif ( $is_external ) {
+        $target_attr = ' target="_blank" rel="noopener"';
+    }
+
+    if ( ! empty( $atts['rel'] ) ) {
+        $target_attr .= ' rel="' . esc_attr( $atts['rel'] ) . '"';
+    }
+
+    // HTML出力を構築
+    $output = '<blockquote cite="' . esc_attr( $url ) . '" class="kslc-blockquote">';
+    $output .= '<div class="' . esc_attr( $card_class ) . '" style="' . esc_attr( $inline_style ) . '">';
+
+    // サムネイルがない場合のバッジ
+    if ( $show_badge && ! $show_thumbnail ) {
+        $badge_class = $is_external ? 'kslc-external-link-badge' : 'kslc-internal-link-badge';
+        $badge_text = $is_external ? '外部リンク' : '内部リンク';
+        $output .= '<span class="' . $badge_class . '">' . $badge_text . '</span>';
+    }
+
+    $output .= '<a href="' . esc_url( $url ) . '"' . $target_attr . ' class="kslc-link">';
+    $output .= '<div class="kslc-content">';
+    $output .= '<div class="kslc-title">' . $title . '</div>';
+    $output .= '<div class="kslc-description kslc-fallback-url">' . esc_html( $url ) . '</div>';
+    $output .= '<div class="kslc-site-name">' . esc_html( $domain ) . '</div>';
+    $output .= '</div>';
+
+    if ( $show_thumbnail ) {
+        $output .= '<div class="kslc-thumbnail kslc-fallback-thumbnail">';
+
+        // サムネイル上のバッジ
+        if ( $show_badge ) {
+            $badge_class = $is_external ? 'kslc-external-link-badge' : 'kslc-internal-link-badge';
+            $badge_text = $is_external ? '外部リンク' : '内部リンク';
+            $output .= '<span class="' . $badge_class . '">' . $badge_text . '</span>';
+        }
+
+        $output .= '<img src="' . esc_url( $favicon_url ) . '" alt="' . esc_attr( $domain ) . '">';
+        $output .= '</div>';
+    }
+
+    $output .= '</a>';
+    $output .= '</div>';
+    $output .= '</blockquote>';
+
+    return $output;
+}

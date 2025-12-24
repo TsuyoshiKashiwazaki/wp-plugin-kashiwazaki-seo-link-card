@@ -409,3 +409,39 @@
         border-bottom-left-radius: calc(var(--kslc-border-radius) - 2px);
     }
 }
+
+
+/* Fallback Card - スクレイピング失敗時の簡易パネル */
+.kslc-fallback-card .kslc-fallback-thumbnail {
+    background-color: var(--kslc-thumbnail-bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.kslc-fallback-card .kslc-fallback-thumbnail img {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.kslc-fallback-card .kslc-fallback-url {
+    font-size: 0.85em;
+    color: var(--kslc-meta-color);
+    word-break: break-all;
+    opacity: 0.8;
+}
+
+/* スマホでのフォールバックカード調整 */
+@media (max-width: 480px) {
+    .kslc-fallback-card .kslc-fallback-thumbnail {
+        height: 100px !important;
+    }
+
+    .kslc-fallback-card .kslc-fallback-thumbnail img {
+        width: 48px;
+        height: 48px;
+    }
+}

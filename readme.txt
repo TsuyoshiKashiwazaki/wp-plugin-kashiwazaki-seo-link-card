@@ -4,7 +4,7 @@ Donate link: https://tsuyoshikashiwazaki.jp/
 Tags: link, card, seo, shortcode, ogp
 Requires at least: 5.0
 Tested up to: 6.5
-Stable tag: 1.0.5
+Stable tag: 1.0.6
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,9 @@ Yes, it caches the fetched OGP data for 24 hours using WordPress transients to i
 1. Example of a link card.
 
 == Changelog ==
+
+= 1.0.6 =
+* Added: Fallback decoration panel when scraping fails
 
 = 1.0.5 =
 * Added: OGP image URL validation (fallback if non-200 response)

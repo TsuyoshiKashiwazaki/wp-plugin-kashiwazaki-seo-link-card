@@ -3,7 +3,7 @@
 ![WordPress](https://img.shields.io/badge/WordPress-5.5%2B-blue.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.0%2B-blue.svg)
 ![License](https://img.shields.io/badge/license-GPL--2.0%2B-green.svg)
-![Version](https://img.shields.io/badge/version-1.0.5-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.6-blue.svg)
 
 URLを記述するだけで、ページの情報を取得してカード形式で表示するWordPressプラグインです。OGPデータの自動取得、内部リンク最適化、クリックトラッキング、カスタマイズ可能なデザインなど、豊富な機能を搭載しています。
 
@@ -266,6 +266,9 @@ GPL-2.0 or later
 https://github.com/TsuyoshiKashiwazaki/wp-plugin-kashiwazaki-seo-link-card/issues
 
 ## 変更履歴
+
+### [1.0.6] - 2025-12-24
+- **追加**: スクレイピング失敗時の簡易デコレーションパネル機能（URLのみでも見栄えの良いカードを表示）
 
 ### [1.0.5] - 2025-12-23
 - **追加**: OGP画像URLの有効性チェック機能（200以外のレスポンスの場合はフォールバック画像を使用）

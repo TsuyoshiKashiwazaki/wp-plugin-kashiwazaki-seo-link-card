@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2025-12-24
+
+### Added
+- スクレイピング失敗時の簡易デコレーションパネル機能（URLのみの場合でも見栄えの良いカードを表示）
+
 ## [1.0.5] - 2025-12-23
 
 ### Added
