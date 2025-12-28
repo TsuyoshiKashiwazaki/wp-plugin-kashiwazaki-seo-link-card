@@ -3,7 +3,7 @@
 ![WordPress](https://img.shields.io/badge/WordPress-5.5%2B-blue.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.0%2B-blue.svg)
 ![License](https://img.shields.io/badge/license-GPL--2.0%2B-green.svg)
-![Version](https://img.shields.io/badge/version-1.0.6-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.7-blue.svg)
 
 URLを記述するだけで、ページの情報を取得してカード形式で表示するWordPressプラグインです。OGPデータの自動取得、内部リンク最適化、クリックトラッキング、カスタマイズ可能なデザインなど、豊富な機能を搭載しています。
 
@@ -266,32 +266,6 @@ GPL-2.0 or later
 https://github.com/TsuyoshiKashiwazaki/wp-plugin-kashiwazaki-seo-link-card/issues
 
 ## 変更履歴
-
-### [1.0.6] - 2025-12-24
-- **追加**: スクレイピング失敗時の簡易デコレーションパネル機能（URLのみでも見栄えの良いカードを表示）
-
-### [1.0.5] - 2025-12-23
-- **追加**: OGP画像URLの有効性チェック機能（200以外のレスポンスの場合はフォールバック画像を使用）
-- **修正**: ブロックエディタの記事検索がタイトル部分一致で正しく動作するように修正
-
-### [1.0.4] - 2025-12-10
-- **追加**: OGP画像が取得できない場合のフォールバックとしてGoogle Favicon APIを使用
-
-### [1.0.3] - 2025-12-09
-- **修正**: post_id指定時に内部リンクデータが取得できないバグを修正
-- **修正**: 相対URL（/path/to/page/）が処理できないバグを修正
-- **修正**: リンクタイプ切替時にデータが消えるバグを修正
-- **追加**: ブロックエディタに「設定をクリア」ボタンを追加
-
-### [1.0.2] - 2025-12-08
-- **修正**: 外部サイトの相対パスOGP画像の絶対パス変換処理を追加
-
-### [1.0.1] - 2025-01-18
-- **修正**: URLエンコード処理の改善（特殊文字を含むURLへの対応）
-- **修正**: parse_url()エラー処理の追加（不正なURL形式への対応）
-- **修正**: キャッシュクリア機能の実装（管理画面から正常に動作）
-- **改善**: 外部サイトリクエストヘッダーの最適化（互換性向上）
-- **改善**: User-Agent設定の一元管理とフィルターフック追加
 
 詳細は [CHANGELOG.md](CHANGELOG.md) を参照してください。
 

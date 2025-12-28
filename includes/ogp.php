@@ -85,6 +85,85 @@ function kslc_get_internal_post_data_by_id( $post_id ) {
     return $ogp_data;
 }
 
+/**
+ * HTMLからエンコーディングを検出する
+ *
+ * @param string $html HTML文字列
+ * @param array $response wp_remote_getのレスポンス
+ * @return string 検出されたエンコーディング（デフォルト: UTF-8）
+ */
+function kslc_detect_encoding( $html, $response = null ) {
+    // 1. HTTPヘッダーからcharsetを取得
+    if ( $response ) {
+        $content_type = wp_remote_retrieve_header( $response, 'content-type' );
+        if ( preg_match( '/charset=([^\s;]+)/i', $content_type, $matches ) ) {
+            return strtoupper( trim( $matches[1] ) );
+        }
+    }
+
+    // 2. XML宣言からエンコーディングを取得
+    if ( preg_match( '/<\?xml[^>]+encoding=["\']([^"\']+)["\']/i', $html, $matches ) ) {
+        return strtoupper( trim( $matches[1] ) );
+    }
+
+    // 3. meta http-equivからcharsetを取得
+    if ( preg_match( '/<meta[^>]+http-equiv=["\']?Content-Type["\']?[^>]+charset=([^\s"\';>]+)/i', $html, $matches ) ) {
+        return strtoupper( trim( $matches[1] ) );
+    }
+
+    // 4. HTML5形式のmeta charsetを取得
+    if ( preg_match( '/<meta[^>]+charset=["\']?([^\s"\';>]+)/i', $html, $matches ) ) {
+        return strtoupper( trim( $matches[1] ) );
+    }
+
+    // 5. mb_detect_encodingでフォールバック
+    $detected = mb_detect_encoding( $html, ['UTF-8', 'SJIS', 'EUC-JP', 'ISO-2022-JP', 'ISO-8859-1'], true );
+    if ( $detected ) {
+        return strtoupper( $detected );
+    }
+
+    return 'UTF-8';
+}
+
+/**
+ * HTMLをUTF-8に変換する
+ *
+ * @param string $html HTML文字列
+ * @param string $encoding 元のエンコーディング
+ * @return string UTF-8に変換されたHTML
+ */
+function kslc_convert_to_utf8( $html, $encoding ) {
+    $encoding = strtoupper( $encoding );
+
+    // Shift_JISの別名を統一
+    if ( in_array( $encoding, ['SHIFT_JIS', 'SHIFT-JIS', 'SJIS', 'SJIS-WIN', 'CP932', 'MS932'] ) ) {
+        $encoding = 'SJIS-win';
+    }
+
+    // EUC-JPの別名を統一
+    if ( in_array( $encoding, ['EUC-JP', 'EUCJP', 'EUC_JP'] ) ) {
+        $encoding = 'EUC-JP';
+    }
+
+    // ISO-2022-JPの別名を統一
+    if ( in_array( $encoding, ['ISO-2022-JP', 'ISO2022JP', 'JIS', 'CSISO2022JP'] ) ) {
+        $encoding = 'ISO-2022-JP';
+    }
+
+    // 既にUTF-8の場合はそのまま返す
+    if ( $encoding === 'UTF-8' ) {
+        return $html;
+    }
+
+    // mb_convert_encodingで変換
+    $converted = mb_convert_encoding( $html, 'UTF-8', $encoding );
+    if ( $converted !== false ) {
+        return $converted;
+    }
+
+    return $html;
+}
+
 function kslc_get_ogp_data( $url, $post_id = 0 ) {
     $transient_key = 'kslc_ogp_data_' . md5( $url );
     $cached_data = get_transient( $transient_key );
@@ -148,6 +227,10 @@ function kslc_get_ogp_data( $url, $post_id = 0 ) {
     if ( empty( $html ) ) {
         return false;
     }
+
+    // エンコーディングを検出してUTF-8に変換
+    $encoding = kslc_detect_encoding( $html, $response );
+    $html = kslc_convert_to_utf8( $html, $encoding );
 
     $dom = new DOMDocument();
     @$dom->loadHTML( mb_convert_encoding( $html, 'HTML-ENTITIES', 'UTF-8' ) );
