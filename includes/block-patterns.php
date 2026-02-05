@@ -126,7 +126,7 @@ function kslc_enqueue_block_editor_assets() {
         'kslc-block-editor',
         plugin_dir_url( dirname( __FILE__ ) ) . 'assets/js/block-editor.js',
         array( 'wp-blocks', 'wp-element', 'wp-editor', 'wp-components', 'wp-i18n' ),
-        '1.0.0',
+        KSLC_PLUGIN_VERSION,
         true
     );
 

@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - 投稿タイプドロップダウンがすべてのカスタム投稿タイプを表示するように修正
 - ID選択時にショートコードプレビューに正しく反映されない問題を修正
+- JavaScriptファイルのキャッシュ問題を修正（バージョンパラメータをプラグインバージョンと連動）
 
 ## [1.0.7] - 2025-12-28
 

@@ -39,6 +39,7 @@ Yes, it caches the fetched OGP data for 24 hours using WordPress transients to i
 * Added: URL search feature to search posts by URL/slug in block editor
 * Fixed: Post type dropdown now shows all custom post types (not just "All")
 * Fixed: ID selection now correctly reflects in shortcode preview
+* Fixed: JavaScript cache issue - version parameter now uses plugin version
 
 = 1.0.7 =
 * Fixed: Character encoding issue for non-UTF-8 pages (Shift_JIS, EUC-JP, ISO-2022-JP)
