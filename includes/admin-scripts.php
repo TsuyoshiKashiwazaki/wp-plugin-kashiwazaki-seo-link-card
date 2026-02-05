@@ -20,7 +20,7 @@ function kslc_enqueue_admin_scripts( $hook ) {
         'kslc-admin-script',
         plugin_dir_url( __FILE__ ) . '../assets/js/admin.js',
         array( 'jquery', 'wp-color-picker' ),
-        '1.0.0',
+        KSLC_PLUGIN_VERSION,
         true
     );
 }
