@@ -23,3 +23,9 @@ node_modules/
 # Composer (if any)
 /vendor/
 composer.lock
+
+# Screenshots and test images
+*.png
+
+# Playwright MCP
+.playwright-mcp/

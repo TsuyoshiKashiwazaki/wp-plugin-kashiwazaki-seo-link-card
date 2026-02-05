@@ -86,6 +86,27 @@ function kslc_register_rest_routes() {
             ),
         ),
     ));
+
+    // URLで投稿を検索するエンドポイント
+    register_rest_route( 'kslc/v1', '/search-by-url', array(
+        'methods'  => 'GET',
+        'callback' => 'kslc_search_posts_by_url',
+        'permission_callback' => function() {
+            return current_user_can( 'edit_posts' );
+        },
+        'args' => array(
+            'url' => array(
+                'type' => 'string',
+                'required' => true,
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+            'per_page' => array(
+                'type' => 'integer',
+                'default' => 20,
+                'sanitize_callback' => 'absint',
+            ),
+        ),
+    ));
 }
 add_action( 'rest_api_init', 'kslc_register_rest_routes' );
 
@@ -162,19 +183,74 @@ function kslc_get_all_posts( $request ) {
 function kslc_get_post_by_id( $request ) {
     $post_id = $request->get_param( 'id' );
     $post = get_post( $post_id );
-    
+
     if ( ! $post ) {
         return new WP_Error( 'not_found', 'Post not found', array( 'status' => 404 ) );
     }
-    
+
     $post_type_obj = get_post_type_object( $post->post_type );
-    
+
     $response = array(
         'id'    => $post->ID,
         'title' => get_the_title( $post ),
         'link'  => get_permalink( $post ),
         'type'  => $post_type_obj ? $post_type_obj->labels->singular_name : $post->post_type,
     );
-    
+
     return rest_ensure_response( $response );
+}
+
+/**
+ * URLで投稿を検索
+ */
+function kslc_search_posts_by_url( $request ) {
+    global $wpdb;
+
+    $url_search = $request->get_param( 'url' );
+    $per_page = $request->get_param( 'per_page' );
+
+    // サイトURLを取得
+    $site_url = home_url();
+
+    // 検索キーワードからパスを抽出（先頭の/を削除）
+    $search_path = ltrim( $url_search, '/' );
+
+    // すべての公開投稿タイプを取得
+    $post_types = get_post_types( array( 'public' => true ), 'names' );
+    $post_types_placeholder = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
+
+    // guid または post_name で検索
+    $like_search = '%' . $wpdb->esc_like( $search_path ) . '%';
+
+    $query = $wpdb->prepare(
+        "SELECT ID, post_title, post_type, post_name, guid
+         FROM {$wpdb->posts}
+         WHERE post_status = 'publish'
+         AND post_type IN ($post_types_placeholder)
+         AND (post_name LIKE %s OR guid LIKE %s)
+         ORDER BY post_modified DESC
+         LIMIT %d",
+        array_merge(
+            $post_types,
+            array( $like_search, $like_search, $per_page )
+        )
+    );
+
+    $results = $wpdb->get_results( $query );
+
+    $posts = array();
+    foreach ( $results as $row ) {
+        $permalink = get_permalink( $row->ID );
+        $post_type_obj = get_post_type_object( $row->post_type );
+
+        $posts[] = array(
+            'id'    => $row->ID,
+            'title' => $row->post_title ? $row->post_title : '（タイトルなし）',
+            'link'  => $permalink,
+            'type'  => $post_type_obj ? $post_type_obj->labels->singular_name : $row->post_type,
+            'slug'  => $row->post_name,
+        );
+    }
+
+    return rest_ensure_response( $posts );
 }

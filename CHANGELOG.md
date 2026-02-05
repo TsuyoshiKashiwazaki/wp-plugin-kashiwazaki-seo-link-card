@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.8] - 2026-02-05
+
+### Added
+- ブロックエディタにID選択タブを追加（投稿IDを直接入力して記事を選択可能）
+- ブロックエディタにURL検索機能を追加（URLやスラッグで記事を検索可能）
+
+### Fixed
+- 投稿タイプドロップダウンがすべてのカスタム投稿タイプを表示するように修正
+- ID選択時にショートコードプレビューに正しく反映されない問題を修正
+
 ## [1.0.7] - 2025-12-28
 
 ### Fixed

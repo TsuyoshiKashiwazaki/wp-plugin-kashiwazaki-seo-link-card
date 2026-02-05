@@ -4,7 +4,7 @@ Donate link: https://tsuyoshikashiwazaki.jp/
 Tags: link, card, seo, shortcode, ogp
 Requires at least: 5.0
 Tested up to: 6.5
-Stable tag: 1.0.7
+Stable tag: 1.0.8
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,12 @@ Yes, it caches the fetched OGP data for 24 hours using WordPress transients to i
 1. Example of a link card.
 
 == Changelog ==
+
+= 1.0.8 =
+* Added: ID selection tab for directly entering post ID in block editor
+* Added: URL search feature to search posts by URL/slug in block editor
+* Fixed: Post type dropdown now shows all custom post types (not just "All")
+* Fixed: ID selection now correctly reflects in shortcode preview
 
 = 1.0.7 =
 * Fixed: Character encoding issue for non-UTF-8 pages (Shift_JIS, EUC-JP, ISO-2022-JP)

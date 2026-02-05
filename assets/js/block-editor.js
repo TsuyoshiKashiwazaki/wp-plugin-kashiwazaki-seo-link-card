@@ -57,13 +57,31 @@
             const [isLoading, setIsLoading] = useState(false);
             const [searchTerm, setSearchTerm] = useState('');
             const [selectedPost, setSelectedPost] = useState(null);
+            // URL検索用の状態
+            const [urlSearchTerm, setUrlSearchTerm] = useState('');
+            const [urlSearchResults, setUrlSearchResults] = useState([]);
+            const [isUrlSearching, setIsUrlSearching] = useState(false);
+            // ID入力用の状態
+            const [idInput, setIdInput] = useState('');
+            const [idSearchResult, setIdSearchResult] = useState(null);
+            const [isIdSearching, setIsIdSearching] = useState(false);
+            const [idSearchError, setIdSearchError] = useState('');
 
             // 利用可能な投稿タイプを取得
             const getPostTypes = async () => {
                 try {
                     const types = await apiFetch({ path: '/wp/v2/types' });
+                    // 除外する投稿タイプ（WordPress内部用）
+                    const excludeTypes = [
+                        'attachment', 'nav_menu_item', 'wp_block', 'wp_template',
+                        'wp_template_part', 'wp_global_styles', 'wp_navigation',
+                        'wp_font_family', 'wp_font_face'
+                    ];
                     const publicTypes = Object.entries(types)
-                        .filter(([key, type]) => type.viewable && type.rest_base)
+                        .filter(([key, type]) => {
+                            // rest_baseがあり、除外リストに含まれていない投稿タイプを取得
+                            return type.rest_base && !excludeTypes.includes(key);
+                        })
                         .map(([key, type]) => ({
                             value: type.rest_base || key,
                             label: type.name,
@@ -98,6 +116,75 @@
                     setIsLoading(false);
                 }
             };
+
+            // URLで投稿を検索
+            const searchPostsByUrl = async (urlQuery) => {
+                if (!urlQuery || urlQuery.length < 2) {
+                    setUrlSearchResults([]);
+                    return;
+                }
+                setIsUrlSearching(true);
+                try {
+                    const results = await apiFetch({
+                        path: wp.url.addQueryArgs('/kslc/v1/search-by-url', {
+                            url: urlQuery,
+                            per_page: 20
+                        })
+                    });
+                    setUrlSearchResults(results || []);
+                } catch (error) {
+                    console.error('Error searching by URL:', error);
+                    setUrlSearchResults([]);
+                } finally {
+                    setIsUrlSearching(false);
+                }
+            };
+
+            // URL検索のデバウンス処理
+            useEffect(() => {
+                if (urlSearchTerm.length >= 2) {
+                    const timer = setTimeout(() => {
+                        searchPostsByUrl(urlSearchTerm);
+                    }, 300);
+                    return () => clearTimeout(timer);
+                } else {
+                    setUrlSearchResults([]);
+                }
+            }, [urlSearchTerm]);
+
+            // IDで投稿を検索
+            const searchPostById = async (id) => {
+                const numId = parseInt(id, 10);
+                if (!numId || numId <= 0) {
+                    setIdSearchResult(null);
+                    setIdSearchError('');
+                    return;
+                }
+                setIsIdSearching(true);
+                setIdSearchError('');
+                try {
+                    const result = await apiFetch({ path: `/kslc/v1/post/${numId}` });
+                    setIdSearchResult(result);
+                } catch (error) {
+                    setIdSearchResult(null);
+                    setIdSearchError(__('指定されたIDの記事が見つかりません', 'kashiwazaki-seo-link-card'));
+                } finally {
+                    setIsIdSearching(false);
+                }
+            };
+
+            // ID入力のデバウンス処理
+            useEffect(() => {
+                if (idInput.length > 0) {
+                    const timer = setTimeout(() => {
+                        searchPostById(idInput);
+                    }, 300);
+                    return () => clearTimeout(timer);
+                } else {
+                    setIdSearchResult(null);
+                    setIdSearchError('');
+                }
+            }, [idInput]);
 
             // 初回読み込み時に投稿タイプと投稿を取得
             useEffect(() => {
@@ -183,6 +270,29 @@
                 searchPosts(term, selectedPostType);
             };
 
+            const onUrlSearchChange = (term) => {
+                setUrlSearchTerm(term);
+            };
+
+            const onSelectUrlResult = (post) => {
+                setAttributes({ url: post.link, postId: 0 });
+                setSelectedPost({ id: post.id, title: post.title, link: post.link });
+                setUrlSearchTerm('');
+                setUrlSearchResults([]);
+            };
+
+            const onIdInputChange = (value) => {
+                setIdInput(value.replace(/[^0-9]/g, ''));
+            };
+
+            const onSelectIdResult = (post) => {
+                const numId = parseInt(post.id, 10);
+                setAttributes({ postId: numId, url: post.link });
+                setSelectedPost({ id: numId, title: post.title, link: post.link });
+                setIdInput('');
+                setIdSearchResult(null);
+            };
+
             const onPostTypeChange = (newType) => {
                 setSelectedPostType(newType);
             };
@@ -192,7 +302,7 @@
             if (linkType === 'external' && url) {
                 shortcodePreview = `[kashiwazaki_seo_link_card url="${url}"${title ? ` title="${title}"` : ''}${target === '_blank' ? ' target="_blank"' : ''}${rel ? ` rel="${rel}"` : ''}]`;
             } else if (linkType === 'internal') {
-                if (internalInputType === 'select' && postId > 0) {
+                if ((internalInputType === 'select' || internalInputType === 'id') && postId > 0) {
                     shortcodePreview = `[kashiwazaki_seo_link_card post_id="${postId}"${title ? ` title="${title}"` : ''}${target === '_blank' ? ' target="_blank"' : ''}]`;
                 } else if (internalInputType === 'url' && url) {
                     shortcodePreview = `[kashiwazaki_seo_link_card url="${url}"${title ? ` title="${title}"` : ''}${target === '_blank' ? ' target="_blank"' : ''}]`;
@@ -239,23 +349,205 @@
                                 tabs: [
                                     {
                                         name: 'select',
-                                        title: __('記事から選択', 'kashiwazaki-seo-link-card'),
+                                        title: __('記事選択', 'kashiwazaki-seo-link-card'),
                                     },
                                     {
                                         name: 'url',
-                                        title: __('URL入力', 'kashiwazaki-seo-link-card'),
+                                        title: __('URL選択', 'kashiwazaki-seo-link-card'),
+                                    },
+                                    {
+                                        name: 'id',
+                                        title: __('ID選択', 'kashiwazaki-seo-link-card'),
                                     }
                                 ],
                                 onSelect: (tabName) => onChangeInternalInputType(tabName)
                             }, (tab) => {
-                                if (tab.name === 'url') {
-                                    return el(TextControl, {
-                                        label: __('内部URL', 'kashiwazaki-seo-link-card'),
-                                        value: url,
-                                        onChange: onChangeURL,
-                                        placeholder: '/custom-page/',
-                                        help: __('WordPressで管理されていない内部ページのURLを入力', 'kashiwazaki-seo-link-card')
-                                    });
+                                if (tab.name === 'id') {
+                                    return el('div', { className: 'kslc-id-selector' },
+                                        el(TextControl, {
+                                            label: __('投稿ID', 'kashiwazaki-seo-link-card'),
+                                            value: idInput,
+                                            onChange: onIdInputChange,
+                                            placeholder: __('投稿IDを入力...', 'kashiwazaki-seo-link-card'),
+                                            help: __('投稿のIDを直接入力して検索', 'kashiwazaki-seo-link-card'),
+                                            type: 'number'
+                                        }),
+
+                                        selectedPost && el('div', {
+                                            style: {
+                                                padding: '10px',
+                                                background: '#e8f4ff',
+                                                border: '2px solid #0073aa',
+                                                borderRadius: '4px',
+                                                marginBottom: '10px'
+                                            }
+                                        },
+                                            el('div', { style: { fontWeight: 'bold', marginBottom: '5px' } },
+                                                __('選択中:', 'kashiwazaki-seo-link-card')
+                                            ),
+                                            el('div', { style: { fontSize: '14px' } }, selectedPost.title),
+                                            el('div', { style: { fontSize: '12px', color: '#666', marginTop: '5px' } },
+                                                selectedPost.link
+                                            )
+                                        ),
+
+                                        isIdSearching ? el('div', {
+                                            style: { textAlign: 'center', padding: '20px' }
+                                        }, el(Spinner)) : (
+                                            idSearchResult ? el('div', {
+                                                style: {
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px',
+                                                    background: '#fff',
+                                                    marginBottom: '10px'
+                                                }
+                                            },
+                                                el('div', {
+                                                    onClick: () => onSelectIdResult(idSearchResult),
+                                                    style: {
+                                                        padding: '12px 15px',
+                                                        cursor: 'pointer',
+                                                        transition: 'background 0.2s'
+                                                    },
+                                                    onMouseEnter: (e) => { e.currentTarget.style.background = '#f5f5f5'; },
+                                                    onMouseLeave: (e) => { e.currentTarget.style.background = 'white'; }
+                                                },
+                                                    el('div', {
+                                                        style: {
+                                                            fontWeight: '500',
+                                                            fontSize: '14px',
+                                                            color: '#23282d',
+                                                            marginBottom: '6px'
+                                                        }
+                                                    }, idSearchResult.title || '（タイトルなし）'),
+                                                    el('div', {
+                                                        style: { fontSize: '12px', color: '#0073aa' }
+                                                    }, idSearchResult.link),
+                                                    el('div', {
+                                                        style: { fontSize: '11px', color: '#999', marginTop: '4px' }
+                                                    }, `ID: ${idSearchResult.id} / ${idSearchResult.type}`),
+                                                    el(Button, {
+                                                        isPrimary: true,
+                                                        style: { marginTop: '10px' },
+                                                        onClick: (e) => { e.stopPropagation(); onSelectIdResult(idSearchResult); }
+                                                    }, __('この記事を選択', 'kashiwazaki-seo-link-card'))
+                                                )
+                                            ) : (
+                                                idSearchError && el('div', {
+                                                    style: {
+                                                        padding: '10px',
+                                                        background: '#fef7f1',
+                                                        border: '1px solid #f0b849',
+                                                        borderRadius: '4px',
+                                                        color: '#826200'
+                                                    }
+                                                }, idSearchError)
+                                            )
+                                        )
+                                    );
+                                } else if (tab.name === 'url') {
+                                    return el('div', { className: 'kslc-url-selector' },
+                                        el(TextControl, {
+                                            label: __('URLで検索', 'kashiwazaki-seo-link-card'),
+                                            value: urlSearchTerm,
+                                            onChange: onUrlSearchChange,
+                                            placeholder: __('URLの一部を入力...', 'kashiwazaki-seo-link-card'),
+                                            help: __('スラッグやパスの一部で記事を検索できます', 'kashiwazaki-seo-link-card')
+                                        }),
+
+                                        selectedPost && el('div', {
+                                            style: {
+                                                padding: '10px',
+                                                background: '#e8f4ff',
+                                                border: '2px solid #0073aa',
+                                                borderRadius: '4px',
+                                                marginBottom: '10px'
+                                            }
+                                        },
+                                            el('div', { style: { fontWeight: 'bold', marginBottom: '5px' } },
+                                                __('選択中:', 'kashiwazaki-seo-link-card')
+                                            ),
+                                            el('div', { style: { fontSize: '14px' } }, selectedPost.title),
+                                            el('div', { style: { fontSize: '12px', color: '#666', marginTop: '5px' } },
+                                                selectedPost.link
+                                            )
+                                        ),
+
+                                        isUrlSearching ? el('div', {
+                                            style: { textAlign: 'center', padding: '20px' }
+                                        }, el(Spinner)) : (
+                                            urlSearchResults.length > 0 && el('div', {
+                                                style: {
+                                                    maxHeight: '300px',
+                                                    overflowY: 'auto',
+                                                    border: '1px solid #ddd',
+                                                    borderRadius: '4px',
+                                                    background: '#fff',
+                                                    marginBottom: '15px'
+                                                }
+                                            },
+                                                urlSearchResults.map((post, index) =>
+                                                    el('div', {
+                                                        key: post.id,
+                                                        onClick: () => onSelectUrlResult(post),
+                                                        style: {
+                                                            display: 'block',
+                                                            width: '100%',
+                                                            padding: '12px 15px',
+                                                            borderBottom: index < urlSearchResults.length - 1 ? '1px solid #e0e0e0' : 'none',
+                                                            background: 'white',
+                                                            cursor: 'pointer',
+                                                            transition: 'background 0.2s',
+                                                            boxSizing: 'border-box'
+                                                        },
+                                                        onMouseEnter: (e) => { e.currentTarget.style.background = '#f5f5f5'; },
+                                                        onMouseLeave: (e) => { e.currentTarget.style.background = 'white'; }
+                                                    },
+                                                        el('div', {
+                                                            style: {
+                                                                fontWeight: '500',
+                                                                fontSize: '14px',
+                                                                color: '#23282d',
+                                                                marginBottom: '6px',
+                                                                lineHeight: '1.4',
+                                                                wordBreak: 'break-word'
+                                                            }
+                                                        }, post.title || '（タイトルなし）'),
+                                                        el('div', {
+                                                            style: {
+                                                                fontSize: '12px',
+                                                                color: '#0073aa',
+                                                                wordBreak: 'break-all'
+                                                            }
+                                                        }, post.link.replace(/^https?:\/\/[^\/]+/, '')),
+                                                        el('div', {
+                                                            style: {
+                                                                fontSize: '11px',
+                                                                color: '#999',
+                                                                marginTop: '4px'
+                                                            }
+                                                        }, post.type)
+                                                    )
+                                                )
+                                            )
+                                        ),
+
+                                        el('div', {
+                                            style: {
+                                                borderTop: '1px solid #ddd',
+                                                paddingTop: '15px',
+                                                marginTop: '10px'
+                                            }
+                                        },
+                                            el(TextControl, {
+                                                label: __('または直接URL入力', 'kashiwazaki-seo-link-card'),
+                                                value: url,
+                                                onChange: onChangeURL,
+                                                placeholder: '/custom-page/',
+                                                help: __('WordPressで管理されていない内部ページのURLを入力', 'kashiwazaki-seo-link-card')
+                                            })
+                                        )
+                                    );
                                 } else {
                                     return el('div', { className: 'kslc-post-selector' },
                                         el(SelectControl, {
@@ -448,7 +740,7 @@
                                 justifyContent: 'center'
                             }
                         },
-                        (linkType === 'external' && url) || (linkType === 'internal' && ((internalInputType === 'select' && postId > 0) || (internalInputType === 'url' && url))) ? el(
+                        (linkType === 'external' && url) || (linkType === 'internal' && (((internalInputType === 'select' || internalInputType === 'id') && postId > 0) || (internalInputType === 'url' && url))) ? el(
                             'div',
                             { style: { textAlign: 'center', width: '100%' } },
                             el('div', { style: { marginBottom: '10px', fontSize: '14px', color: '#666' } }, 
@@ -469,8 +761,8 @@
                         ) : el(
                             'div',
                             { style: { color: '#999' } },
-                            linkType === 'internal' 
-                                ? internalInputType === 'select' 
+                            linkType === 'internal'
+                                ? (internalInputType === 'select' || internalInputType === 'id')
                                     ? __('記事を選択してリンクカードを作成', 'kashiwazaki-seo-link-card')
                                     : __('URLを入力してリンクカードを作成', 'kashiwazaki-seo-link-card')
                                 : __('URLを入力してリンクカードを作成', 'kashiwazaki-seo-link-card')
@@ -484,7 +776,7 @@
             const { linkType, url, postId, title, target, rel, internalInputType } = props.attributes;
             
             if (linkType === 'internal') {
-                if (internalInputType === 'select' && postId > 0) {
+                if ((internalInputType === 'select' || internalInputType === 'id') && postId > 0) {
                     let shortcode = `[kashiwazaki_seo_link_card post_id="${postId}"`;
                     if (title) {
                         shortcode += ` title="${title}"`;
