@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>インストール・初期設定 - Kashiwazaki SEO Link Card マニュアル</title>
+<link rel="stylesheet" href="css/style.css?v=1">
+</head>
+<body>
+
+<button class="hamburger-btn" aria-label="Menu" aria-expanded="false">&#9776;</button>
+
+<nav class="sidebar">
+<div class="sidebar-header"><h2 style="color:#fff;">Link Card</h2><span class="version">v1.0.8</span><img src="images/main-visual.png" alt="" style="width:100%;border-radius:4px;margin-top:8px;"></div>
+<ul><li><a href="index.html">概要</a></li><li><a href="setup.html">インストール・初期設定</a></li><li><a href="link-card-usage.html">リンクカードの使い方</a></li><li><a href="troubleshooting.html">トラブルシューティング</a></li></ul>
+</nav>
+
+<main class="content">
+
+<h1>インストール・初期設定</h1>
+
+<p class="lead">Kashiwazaki SEO Link Card のインストールから初期設定までの手順を説明します。プラグインを有効化すると、クリック解析用のカスタムテーブル（wp_kslc_analytics）が自動作成されます。</p>
+
+<h2>インストール方法</h2>
+
+<h3>方法1: WordPress管理画面からインストール</h3>
+
+<div class="step">
+<span class="step-number">1</span>
+<div class="step-body">
+<p>WordPress管理画面にログインし、左メニューから <strong>プラグイン &gt; 新規追加</strong> を選択します。</p>
+</div>
+</div>
+
+<figure class="screenshot">
+    <img src="images/screenshots/00-menu-location.png" alt="管理画面メニューの位置" class="lightbox-trigger">
+    <figcaption>管理画面の左メニューにプラグインが追加されます</figcaption>
+</figure>
+
+<div class="step">
+<span class="step-number">2</span>
+<div class="step-body">
+<p>検索ボックスに「Kashiwazaki SEO Link Card」と入力し、表示されたプラグインの <strong>今すぐインストール</strong> ボタンをクリックします。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">3</span>
+<div class="step-body">
+<p>インストール完了後、<strong>有効化</strong> ボタンをクリックします。有効化時にクリック解析用テーブル（wp_kslc_analytics）が自動作成されます。</p>
+</div>
+</div>
+
+<h3>方法2: ZIPファイルからインストール</h3>
+
+<div class="step">
+<span class="step-number">1</span>
+<div class="step-body">
+<p>プラグインのZIPファイルをダウンロードします。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">2</span>
+<div class="step-body">
+<p>WordPress管理画面の <strong>プラグイン &gt; 新規追加 &gt; プラグインのアップロード</strong> からZIPファイルを選択し、<strong>今すぐインストール</strong> をクリックします。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">3</span>
+<div class="step-body">
+<p>インストール完了後、<strong>有効化</strong> ボタンをクリックします。</p>
+</div>
+</div>
+
+<h2>初期設定</h2>
+
+<p>プラグインを有効化すると、WordPress管理画面に2つの管理ページが追加されます。</p>
+
+<table>
+<thead>
+<tr><th style="width:35%;">管理ページ</th><th>説明</th></tr>
+</thead>
+<tbody>
+<tr><td>設定ページ</td><td>カラーテーマ、サムネイル位置、バッジ表示などのデザイン設定</td></tr>
+<tr><td>解析ページ</td><td>リンクカードのクリック統計を確認</td></tr>
+</tbody>
+</table>
+
+<h3>設定手順</h3>
+
+<div class="step">
+<span class="step-number">1</span>
+<div class="step-body">
+<p>WordPress管理画面の左メニューから設定ページを開きます。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">2</span>
+<div class="step-body">
+<p><strong>カラーテーマ</strong>を選択します。サイトのデザインに合わせたテーマを選択してください。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">3</span>
+<div class="step-body">
+<p><strong>サムネイル位置</strong>を設定します。リンクカード内のサムネイル画像の表示位置（左・右）を選択できます。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">4</span>
+<div class="step-body">
+<p><strong>バッジ設定</strong>を調整します。外部リンク・内部リンクのバッジ表示の有無を設定できます。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">5</span>
+<div class="step-body">
+<p><strong>変更を保存</strong> ボタンをクリックして設定を保存します。</p>
+</div>
+</div>
+
+<div class="callout callout-tip">
+<p class="callout-title">ヒント</p>
+<p>プラグインは有効化した時点でデフォルト設定で動作します。特別な設定変更がなくても、すぐにリンクカードの表示を開始できます。</p>
+</div>
+
+<h2>外部通信について</h2>
+
+<div class="callout callout-note">
+<p class="callout-title">メモ</p>
+<p>本プラグインはOGP情報の取得のために <code>wp_remote_get</code> を使用して外部URLへHTTPリクエストを送信します。サーバーの外部通信（アウトバウンドHTTP）が許可されている必要があります。ファイアウォールやセキュリティプラグインで外部通信がブロックされている場合、OGP情報の取得に失敗する可能性があります。</p>
+</div>
+
+<h2>動作要件の確認</h2>
+
+<table>
+<thead>
+<tr><th style="width:35%;">項目</th><th>要件</th></tr>
+</thead>
+<tbody>
+<tr><td>WordPress</td><td>5.0 以上</td></tr>
+<tr><td>PHP</td><td>5.6 以上</td></tr>
+<tr><td>外部依存</td><td>wp_remote_get による外部HTTP通信（OGPスクレイピング）</td></tr>
+</tbody>
+</table>
+
+<nav class="page-nav">
+<a href="index.html" class="prev">&laquo; 概要</a>
+<a href="link-card-usage.html" class="next">リンクカードの使い方 &raquo;</a>
+</nav>
+
+<footer class="manual-footer"><p>作者: <a href="https://www.tsuyoshikashiwazaki.jp/profile/" target="_blank" rel="noopener">柏崎剛（Tsuyoshi Kashiwazaki）</a></p><p>プラグイン: Kashiwazaki SEO Link Card v1.0.8</p></footer>
+
+</main>
+
+<div class="lightbox"></div>
+<script src="js/manual.js?v=1"></script>
+</body>
+</html>

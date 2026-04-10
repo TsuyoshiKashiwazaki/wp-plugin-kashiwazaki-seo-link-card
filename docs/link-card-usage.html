@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>リンクカードの使い方 - Kashiwazaki SEO Link Card マニュアル</title>
+<link rel="stylesheet" href="css/style.css?v=1">
+</head>
+<body>
+
+<button class="hamburger-btn" aria-label="Menu" aria-expanded="false">&#9776;</button>
+
+<nav class="sidebar">
+<div class="sidebar-header"><h2 style="color:#fff;">Link Card</h2><span class="version">v1.0.8</span><img src="images/main-visual.png" alt="" style="width:100%;border-radius:4px;margin-top:8px;"></div>
+<ul><li><a href="index.html">概要</a></li><li><a href="setup.html">インストール・初期設定</a></li><li><a href="link-card-usage.html">リンクカードの使い方</a></li><li><a href="troubleshooting.html">トラブルシューティング</a></li></ul>
+</nav>
+
+<main class="content">
+
+<h1>リンクカードの使い方</h1>
+
+<p class="lead">Kashiwazaki SEO Link Card のリンクカード表示、クリック解析、デザインカスタマイズの各機能について詳しく説明します。</p>
+
+<h2 id="link-card-display">リンクカード表示</h2>
+
+<p>リンクカードは、URLからOGP（Open Graph Protocol）情報を自動取得し、タイトル・説明文・サムネイル画像を含むリッチなカード形式で表示します。</p>
+
+<figure class="screenshot">
+    <img src="images/screenshots/02-linkcard-detail.png" alt="リンクカード設定" class="lightbox-trigger">
+    <figcaption>リンクカードの詳細設定</figcaption>
+</figure>
+
+<h3>フロントエンド表示例</h3>
+<figure class="screenshot">
+    <img src="images/screenshots/03-frontend-linkcard.png" alt="リンクカードの表示例" class="lightbox-trigger">
+    <figcaption>投稿内に表示されたリンクカード</figcaption>
+</figure>
+
+<h3>リンクカードの生成</h3>
+
+<div class="step">
+<span class="step-number">1</span>
+<div class="step-body">
+<p>投稿や固定ページの編集画面で、リンクカードとして表示したいURLを指定します。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">2</span>
+<div class="step-body">
+<p>プラグインが <code>wp_remote_get</code> を使用してリンク先のOGP情報を自動取得します。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">3</span>
+<div class="step-body">
+<p>取得したOGP情報（og:title、og:description、og:image）を基に、リンクカードが生成されます。</p>
+</div>
+</div>
+
+<div class="callout callout-note">
+<p class="callout-title">メモ</p>
+<p>OGP情報が設定されていないURLの場合、HTMLの <code>&lt;title&gt;</code> タグやメタディスクリプションからの情報取得を試みます。</p>
+</div>
+
+<h3>外部・内部リンクの自動判別</h3>
+
+<p>プラグインはリンク先URLのドメインを自動判定し、外部リンクと内部リンクを自動的に判別します。</p>
+
+<table>
+<thead>
+<tr><th style="width:35%;">リンク種別</th><th>動作</th></tr>
+</thead>
+<tbody>
+<tr><td>内部リンク</td><td>同一ドメインへのリンク。内部リンク用のバッジやスタイルが適用されます</td></tr>
+<tr><td>外部リンク</td><td>異なるドメインへのリンク。外部リンク用のバッジやスタイルが適用されます</td></tr>
+</tbody>
+</table>
+
+<h2 id="click-analytics">クリック解析</h2>
+
+<p>リンクカードのクリック数は、専用のカスタムテーブル（wp_kslc_analytics）に記録されます。フロントエンドのアナリティクスJS（2KB）がクリックイベントを検知し、AJAXでサーバーに送信します。</p>
+
+<h3>解析画面の使い方</h3>
+
+<div class="step">
+<span class="step-number">1</span>
+<div class="step-body">
+<p>WordPress管理画面の解析ページを開きます。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">2</span>
+<div class="step-body">
+<p>リンクカードごとのクリック数、クリック日時などの統計情報を確認できます。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">3</span>
+<div class="step-body">
+<p>統計データを基に、ユーザーがよくクリックするリンクを分析し、コンテンツ戦略の改善に活用してください。</p>
+</div>
+</div>
+
+<div class="callout callout-tip">
+<p class="callout-title">ヒント</p>
+<p>クリック解析データを活用することで、ユーザーにとって価値の高いアウトバウンドリンクを特定し、コンテンツ内のリンク配置を最適化できます。</p>
+</div>
+
+<h2 id="design-settings">デザイン設定</h2>
+
+<p>リンクカードのデザインは、管理画面の設定ページから細かくカスタマイズできます。</p>
+
+<h3>カラーテーマ</h3>
+
+<p>サイトのデザインに合わせてカラーテーマを選択できます。テーマを変更すると、リンクカードの枠線、背景色、テキスト色などが一括で変更されます。</p>
+
+<h3>サムネイル位置</h3>
+
+<table>
+<thead>
+<tr><th style="width:35%;">位置</th><th>説明</th></tr>
+</thead>
+<tbody>
+<tr><td>左</td><td>サムネイル画像をカードの左側に表示します。標準的なレイアウトです</td></tr>
+<tr><td>右</td><td>サムネイル画像をカードの右側に表示します</td></tr>
+</tbody>
+</table>
+
+<h3>バッジ設定</h3>
+
+<p>リンクカードに表示されるバッジ（外部リンク・内部リンクの識別ラベル）の表示・非表示を設定できます。</p>
+
+<div class="callout callout-tip">
+<p class="callout-title">ヒント</p>
+<p>バッジを表示することで、ユーザーはリンク先が外部サイトか同一サイト内かを視覚的に判断できるため、ユーザー体験の向上につながります。</p>
+</div>
+
+<h2 id="rest-api">REST API</h2>
+
+<p>本プラグインはREST APIエンドポイント（<code>/wp-json/kslc/v1/</code>）を提供しています。外部ツールやカスタムテーマからリンクカードのデータにアクセスする際に利用できます。</p>
+
+<div class="callout callout-warning">
+<p class="callout-title">注意</p>
+<p>REST APIエンドポイントへのアクセスは、適切な認証と権限が必要です。公開サイトでREST APIを使用する場合は、セキュリティ設定を確認してください。</p>
+</div>
+
+<h2 id="frontend-assets">フロントエンドアセット</h2>
+
+<p>本プラグインがフロントエンドに出力するアセットは以下の通りです。</p>
+
+<table>
+<thead>
+<tr><th style="width:35%;">アセット</th><th>詳細</th></tr>
+</thead>
+<tbody>
+<tr><td>CSS</td><td>約11KB - リンクカードのスタイルシート</td></tr>
+<tr><td>JavaScript</td><td>約2KB - クリック解析用のアナリティクススクリプト</td></tr>
+</tbody>
+</table>
+
+<nav class="page-nav">
+<a href="setup.html" class="prev">&laquo; インストール・初期設定</a>
+<a href="troubleshooting.html" class="next">トラブルシューティング &raquo;</a>
+</nav>
+
+<footer class="manual-footer"><p>作者: <a href="https://www.tsuyoshikashiwazaki.jp/profile/" target="_blank" rel="noopener">柏崎剛（Tsuyoshi Kashiwazaki）</a></p><p>プラグイン: Kashiwazaki SEO Link Card v1.0.8</p></footer>
+
+</main>
+
+<div class="lightbox"></div>
+<script src="js/manual.js?v=1"></script>
+</body>
+</html>

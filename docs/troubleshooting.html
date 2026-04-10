@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>トラブルシューティング - Kashiwazaki SEO Link Card マニュアル</title>
+<link rel="stylesheet" href="css/style.css?v=1">
+</head>
+<body>
+
+<button class="hamburger-btn" aria-label="Menu" aria-expanded="false">&#9776;</button>
+
+<nav class="sidebar">
+<div class="sidebar-header"><h2 style="color:#fff;">Link Card</h2><span class="version">v1.0.8</span><img src="images/main-visual.png" alt="" style="width:100%;border-radius:4px;margin-top:8px;"></div>
+<ul><li><a href="index.html">概要</a></li><li><a href="setup.html">インストール・初期設定</a></li><li><a href="link-card-usage.html">リンクカードの使い方</a></li><li><a href="troubleshooting.html">トラブルシューティング</a></li></ul>
+</nav>
+
+<main class="content">
+
+<h1>トラブルシューティング</h1>
+
+<p class="lead">Kashiwazaki SEO Link Card の使用中に発生する可能性のある問題と、その解決方法をまとめています。</p>
+
+<h2>リンクカードが表示されない</h2>
+
+<h3>症状</h3>
+<p>URLを指定してもリンクカードが生成されず、通常のテキストリンクのままになる。</p>
+
+<h3>解決方法</h3>
+
+<div class="step">
+<span class="step-number">1</span>
+<div class="step-body">
+<p><strong>プラグインの有効化を確認</strong> - WordPress管理画面の <strong>プラグイン</strong> ページで、「Kashiwazaki SEO Link Card」が有効になっているか確認してください。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">2</span>
+<div class="step-body">
+<p><strong>URLの形式を確認</strong> - リンクカードに指定するURLが正しい形式（http:// または https:// で始まる完全なURL）であることを確認してください。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">3</span>
+<div class="step-body">
+<p><strong>キャッシュをクリア</strong> - キャッシュプラグインやCDNのキャッシュが原因で、変更が反映されない場合があります。すべてのキャッシュをクリアしてください。</p>
+</div>
+</div>
+
+<h2>OGP情報が取得できない</h2>
+
+<h3>症状</h3>
+<p>リンクカードは表示されるが、タイトルや説明文、サムネイル画像が表示されない。</p>
+
+<h3>解決方法</h3>
+
+<div class="step">
+<span class="step-number">1</span>
+<div class="step-body">
+<p><strong>リンク先のOGP設定を確認</strong> - リンク先のページにOGPメタタグ（og:title、og:description、og:image）が設定されているか確認してください。OGPが設定されていないページでは、情報の取得が制限されます。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">2</span>
+<div class="step-body">
+<p><strong>外部通信を確認</strong> - サーバーから外部URLへのHTTPリクエスト（wp_remote_get）がブロックされていないか確認してください。ファイアウォールやセキュリティプラグインの設定を確認してください。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">3</span>
+<div class="step-body">
+<p><strong>SSL証明書の問題を確認</strong> - リンク先がHTTPSの場合、サーバーのSSL証明書バンドルが古いとOGP取得に失敗することがあります。サーバーのCA証明書を更新してください。</p>
+</div>
+</div>
+
+<div class="callout callout-tip">
+<p class="callout-title">ヒント</p>
+<p>OGP情報が取得できない場合でも、プラグインはHTMLの <code>&lt;title&gt;</code> タグやメタディスクリプションからの情報取得を試みます。完全にブランクになる場合は、サーバーの外部通信設定を重点的に確認してください。</p>
+</div>
+
+<h2>クリック解析が記録されない</h2>
+
+<h3>症状</h3>
+<p>リンクカードをクリックしても、解析画面にクリックデータが表示されない。</p>
+
+<h3>解決方法</h3>
+
+<div class="step">
+<span class="step-number">1</span>
+<div class="step-body">
+<p><strong>JavaScriptの動作を確認</strong> - ブラウザの開発者ツール（Console）でJavaScriptエラーが発生していないか確認してください。他のプラグインやテーマのJSと競合している可能性があります。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">2</span>
+<div class="step-body">
+<p><strong>AJAXの通信を確認</strong> - ブラウザの開発者ツール（Network）タブで、クリック時にAJAXリクエストが正常に送信されているか確認してください。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">3</span>
+<div class="step-body">
+<p><strong>カスタムテーブルの存在を確認</strong> - wp_kslc_analytics テーブルが正しく作成されているか、データベース管理ツール（phpMyAdminなど）で確認してください。テーブルが存在しない場合は、プラグインを一度無効化してから再度有効化してください。</p>
+</div>
+</div>
+
+<h2>デザインが正しく表示されない</h2>
+
+<h3>症状</h3>
+<p>カラーテーマやサムネイル位置の設定が反映されない。</p>
+
+<h3>解決方法</h3>
+
+<div class="step">
+<span class="step-number">1</span>
+<div class="step-body">
+<p><strong>設定の保存を確認</strong> - 設定画面で <strong>変更を保存</strong> ボタンをクリックしたことを確認してください。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">2</span>
+<div class="step-body">
+<p><strong>ブラウザキャッシュをクリア</strong> - ブラウザのキャッシュが原因でCSSの変更が反映されない場合があります。ハードリフレッシュ（Ctrl + Shift + R）を試してください。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">3</span>
+<div class="step-body">
+<p><strong>テーマのCSSとの競合を確認</strong> - 使用中のWordPressテーマのCSSがリンクカードのスタイルを上書きしている可能性があります。ブラウザの開発者ツールで適用されているCSSを確認してください。</p>
+</div>
+</div>
+
+<h2>設定画面にアクセスできない</h2>
+
+<h3>症状</h3>
+<p>WordPress管理画面にリンクカードの設定ページが表示されない。</p>
+
+<h3>解決方法</h3>
+
+<div class="step">
+<span class="step-number">1</span>
+<div class="step-body">
+<p><strong>ユーザー権限を確認</strong> - 設定ページにアクセスするには <code>manage_options</code> 権限（管理者権限）が必要です。管理者アカウントでログインしているか確認してください。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">2</span>
+<div class="step-body">
+<p><strong>プラグインの有効化を確認</strong> - プラグインが正しく有効化されているか確認してください。エラーが発生している場合は、プラグイン一覧画面にエラーメッセージが表示されます。</p>
+</div>
+</div>
+
+<h2>よくある質問</h2>
+
+<table>
+<thead>
+<tr><th style="width:35%;">質問</th><th>回答</th></tr>
+</thead>
+<tbody>
+<tr><td>データベースに新しいテーブルは作られますか？</td><td>はい。クリック解析データを保存するための wp_kslc_analytics テーブルが作成されます。設定値は wp_options テーブル（kslc_*系）に保存されます。</td></tr>
+<tr><td>外部サービスと通信しますか？</td><td>はい。OGP情報を取得するために wp_remote_get を使用して、リンク先URLへHTTPリクエストを送信します。その他の外部サービスとの通信はありません。</td></tr>
+<tr><td>REST APIは無効化できますか？</td><td>REST APIエンドポイント（/wp-json/kslc/v1/）はプラグインの機能の一部です。無効化が必要な場合は、WordPressのREST APIフィルターで制御してください。</td></tr>
+<tr><td>マルチサイトに対応していますか？</td><td>各サイトごとにプラグインを有効化・設定する必要があります。</td></tr>
+<tr><td>アンインストール時にデータは削除されますか？</td><td>プラグインをアンインストール（削除）すると、wp_optionsの設定データおよび wp_kslc_analytics テーブルが削除されます。</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-warning">
+<p class="callout-title">注意</p>
+<p>問題が解決しない場合は、WordPressのデバッグモード（<code>WP_DEBUG</code>）を有効にして、エラーログを確認してください。エラーメッセージの内容が問題解決の手がかりになります。</p>
+</div>
+
+<nav class="page-nav">
+<a href="link-card-usage.html" class="prev">&laquo; リンクカードの使い方</a>
+<span></span>
+</nav>
+
+<footer class="manual-footer"><p>作者: <a href="https://www.tsuyoshikashiwazaki.jp/profile/" target="_blank" rel="noopener">柏崎剛（Tsuyoshi Kashiwazaki）</a></p><p>プラグイン: Kashiwazaki SEO Link Card v1.0.8</p></footer>
+
+</main>
+
+<div class="lightbox"></div>
+<script src="js/manual.js?v=1"></script>
+</body>
+</html>

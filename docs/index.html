@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>概要 - Kashiwazaki SEO Link Card マニュアル</title>
+<link rel="stylesheet" href="css/style.css?v=1">
+</head>
+<body>
+
+<button class="hamburger-btn" aria-label="Menu" aria-expanded="false">&#9776;</button>
+
+<nav class="sidebar">
+<div class="sidebar-header"><h2 style="color:#fff;">Link Card</h2><span class="version">v1.0.8</span><img src="images/main-visual.png" alt="" style="width:100%;border-radius:4px;margin-top:8px;"></div>
+<ul><li><a href="index.html">概要</a></li><li><a href="setup.html">インストール・初期設定</a></li><li><a href="link-card-usage.html">リンクカードの使い方</a></li><li><a href="troubleshooting.html">トラブルシューティング</a></li></ul>
+</nav>
+
+<main class="content">
+
+<h1>Kashiwazaki SEO Link Card マニュアル</h1>
+
+<img src="images/main-visual.png" alt="Kashiwazaki SEO Link Card メインビジュアル" style="width:100%;border-radius:6px;margin-bottom:24px;">
+
+<p class="lead">Kashiwazaki SEO Link Card は、URLをOGP情報付きのリッチなカード形式で表示するWordPressプラグインです。外部・内部リンクを自動判別し、サイト名・説明文・サムネイルを含むリンクカードを生成します。クリック解析機能により、リンクカードのクリック数をトラッキングし、ユーザーの行動を把握できます。</p>
+
+<p>リンクをカード形式で表示することで、ユーザーのクリック率と回遊率を向上させることができます。本プラグインはOGP情報を自動取得してリッチなリンクカードを生成し、クリック解析機能でリンクの効果を測定します。</p>
+
+<div class="feature-cards">
+<div class="feature-card">
+<span class="icon">&#128196;</span>
+<h4>リンクカード表示</h4>
+<p>URLをOGP情報付きのカード形式で表示。外部・内部リンクを自動判別</p>
+</div>
+<div class="feature-card">
+<span class="icon">&#128200;</span>
+<h4>クリック解析</h4>
+<p>リンクカードのクリック数をトラッキング。解析画面で統計を確認</p>
+</div>
+<div class="feature-card">
+<span class="icon">&#127912;</span>
+<h4>デザイン設定</h4>
+<p>カラーテーマ・サムネイル位置・バッジ表示をカスタマイズ</p>
+</div>
+</div>
+
+<h2>主な特徴</h2>
+
+<ul>
+<li><strong>OGPベースのリンクカード</strong> - URLからOGP情報をスクレイピングし、タイトル・説明文・サムネイル画像を含むリッチなカードを自動生成します</li>
+<li><strong>外部・内部リンクの自動判別</strong> - リンク先が外部サイトか内部ページかを自動で判別し、バッジやスタイルを切り替えます</li>
+<li><strong>クリック解析機能</strong> - 専用のカスタムテーブル（wp_kslc_analytics）にクリックデータを記録し、管理画面の解析ページで統計を確認できます</li>
+<li><strong>カラーテーマ・デザインカスタマイズ</strong> - カラーテーマ、サムネイル位置（左・右）、バッジ表示設定など、豊富なデザインオプションを提供します</li>
+<li><strong>REST API対応</strong> - REST API（/wp-json/kslc/v1/）を通じたデータ取得が可能です</li>
+<li><strong>軽量フロントエンド</strong> - フロントエンドのCSS（11KB）とアナリティクスJS（2KB）で、ページ速度への影響を最小限に抑えます</li>
+</ul>
+
+<h2>SEOとGEOへの効果</h2>
+
+<p>本プラグインは、検索エンジン最適化（SEO）と生成エンジン最適化（GEO）の両面で効果を発揮します。</p>
+
+<ul>
+<li><strong>ユーザーエンゲージメントの向上</strong> - リッチプレビュー付きのリンクカードは、テキストリンクと比較してクリック率が高く、ユーザーのサイト内回遊を促進します</li>
+<li><strong>アウトバウンドリンクの価値分析</strong> - クリック解析機能により、どの外部リンクがユーザーにとって価値があるかを把握し、リンク戦略の改善に活用できます</li>
+<li><strong>内部リンクエクイティの最適化</strong> - リンクカードによる適切なリンク表示は、内部リンクの導線を明確にし、リンクエクイティの流れを改善します</li>
+<li><strong>GEO対応</strong> - リッチなリンクコンテキスト（タイトル・説明文・サムネイル）は、AIクローラーがコンテンツ間の関連性を理解する際の手がかりとなります。OGP情報に基づく構造化されたリンク表示により、AIはリンク先の内容をより正確に把握できます</li>
+</ul>
+
+<h2>技術仕様</h2>
+
+<ul>
+<li><strong>データ保存:</strong> wp_options (kslc_*系)</li>
+<li><strong>カスタムテーブル:</strong> wp_kslc_analytics</li>
+<li><strong>外部通信:</strong> wp_remote_get (OGPスクレイピング)</li>
+<li><strong>REST API:</strong> /wp-json/kslc/v1/</li>
+<li><strong>Cron:</strong> なし</li>
+<li><strong>メール:</strong> なし</li>
+</ul>
+
+<h2>動作要件</h2>
+
+<table>
+<thead>
+<tr><th style="width:35%;">項目</th><th>要件</th></tr>
+</thead>
+<tbody>
+<tr><td>WordPress</td><td>5.0 以上</td></tr>
+<tr><td>PHP</td><td>5.6 以上</td></tr>
+<tr><td>外部依存</td><td>wp_remote_get によるOGPスクレイピング（外部URLへのHTTPリクエスト）</td></tr>
+</tbody>
+</table>
+
+<nav class="page-nav">
+<span></span>
+<a href="setup.html" class="next">インストール・初期設定 &raquo;</a>
+</nav>
+
+<footer class="manual-footer"><p>作者: <a href="https://www.tsuyoshikashiwazaki.jp/profile/" target="_blank" rel="noopener">柏崎剛（Tsuyoshi Kashiwazaki）</a></p><p>プラグイン: Kashiwazaki SEO Link Card v1.0.8</p></footer>
+
+</main>
+
+<div class="lightbox"></div>
+<script src="js/manual.js?v=1"></script>
+</body>
+</html>
