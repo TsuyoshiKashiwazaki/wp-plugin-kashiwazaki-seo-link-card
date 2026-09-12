@@ -29,3 +29,23 @@ composer.lock
 
 # Playwright MCP
 .playwright-mcp/
+
+# AI / development tool settings (never publish)
+CLAUDE.md
+.codex
+.cursor/
+.aider*
+.copilot/
+.github/copilot/
+
+# Working temp files
+.tmp/
+/-f
+/-t
+/-t.progress
+*.bak-*
+
+# Dependency manifests (not distributed)
+composer.json
+package.json
+package-lock.json

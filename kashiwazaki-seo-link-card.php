@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Kashiwazaki SEO Link Card
  * Plugin URI: https://www.tsuyoshikashiwazaki.jp
- * Version: 1.0.8
+ * Version: 1.0.9
  * Author: 柏崎剛 (Tsuyoshi Kashiwazaki)
  * Author URI: https://www.tsuyoshikashiwazaki.jp/profile/
  * Description: URLを記述するだけで、ページの情報を取得してカード形式で表示するプラグインです。
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KSLC_PLUGIN_VERSION', '1.0.8' );
+define( 'KSLC_PLUGIN_VERSION', '1.0.9' );
 define( 'KSLC_PLUGIN_FILE', __FILE__ );
 
 // User-Agent for external requests (can be filtered)
@@ -22,49 +22,6 @@ if ( ! defined( 'KSLC_USER_AGENT' ) ) {
     define( 'KSLC_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' );
 }
 
-// デバッグ用：出力バッファリングエラーの追跡（無効化）
-function kslc_debug_output_buffer() {
-    // プラグインは正常動作確認済みのため、デバッグログを無効化
-    return;
-
-    if (defined('WP_DEBUG') && WP_DEBUG && defined('KSLC_ENABLE_DEBUG_LOGS')) {
-        error_log('KSLC Debug: Output buffer level at plugin init: ' . ob_get_level());
-    }
-}
-add_action('init', 'kslc_debug_output_buffer', 1);
-
-// プラグインのシャットダウン処理で出力バッファリングを安全に処理
-function kslc_safe_shutdown() {
-    // 完全無効化オプション
-    if (defined('KSLC_DISABLE_OUTPUT_BUFFER_HANDLING') && KSLC_DISABLE_OUTPUT_BUFFER_HANDLING) {
-        return;
-    }
-
-    // プラグインは正常動作確認済みのため、デバッグログを無効化
-    if (defined('WP_DEBUG') && WP_DEBUG && defined('KSLC_ENABLE_DEBUG_LOGS')) {
-        error_log('KSLC Debug: Output buffer level at shutdown: ' . ob_get_level());
-    }
-
-    // 安全な出力バッファリング処理（保守的なアプローチ）
-    if (ob_get_level() > 1) { // 1つは残しておく
-        try {
-            while (ob_get_level() > 1) {
-                if (!@ob_end_clean()) {
-                    break;
-                }
-            }
-        } catch (Exception $e) {
-            if (defined('WP_DEBUG') && WP_DEBUG && defined('KSLC_ENABLE_DEBUG_LOGS')) {
-                error_log('KSLC Debug: Shutdown buffer handling error: ' . $e->getMessage());
-            }
-        }
-    }
-}
-
-// 出力バッファリング処理を条件付きで登録
-if (!defined('KSLC_DISABLE_OUTPUT_BUFFER_HANDLING') || !KSLC_DISABLE_OUTPUT_BUFFER_HANDLING) {
-    register_shutdown_function('kslc_safe_shutdown');
-}
 
 // 設定ファイルを読み込み
 require_once plugin_dir_path( __FILE__ ) . 'includes/config.php';
@@ -115,7 +72,7 @@ function kslc_create_analytics_table() {
     $result = dbDelta($sql);
 
     // テーブルが作成されたか確認
-    $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name;
+    $table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name;
 
     return $table_exists;
 }
@@ -155,7 +112,9 @@ function kslc_register_settings() {
     // 外部リンク用設定
     register_setting( 'kslc_options_group', 'kslc_external_color_theme', [
         'type' => 'string',
-        'sanitize_callback' => 'sanitize_text_field',
+        'sanitize_callback' => function($value) {
+            return kslc_sanitize_choice( $value, KSLC_ALLOWED_COLOR_THEMES, 'blue' );
+        },
         'default' => 'blue',
     ]);
     register_setting( 'kslc_options_group', 'kslc_external_show_thumbnail', [
@@ -165,7 +124,9 @@ function kslc_register_settings() {
     ]);
     register_setting( 'kslc_options_group', 'kslc_external_thumbnail_position', [
         'type' => 'string',
-        'sanitize_callback' => 'sanitize_text_field',
+        'sanitize_callback' => function($value) {
+            return kslc_sanitize_choice( $value, KSLC_ALLOWED_THUMBNAIL_POSITIONS, 'right' );
+        },
         'default' => 'right',
     ]);
     register_setting( 'kslc_options_group', 'kslc_external_show_badge', [
@@ -177,7 +138,9 @@ function kslc_register_settings() {
     // 内部リンク用設定
     register_setting( 'kslc_options_group', 'kslc_internal_color_theme', [
         'type' => 'string',
-        'sanitize_callback' => 'sanitize_text_field',
+        'sanitize_callback' => function($value) {
+            return kslc_sanitize_choice( $value, KSLC_ALLOWED_COLOR_THEMES, 'gray' );
+        },
         'default' => 'gray',
     ]);
     register_setting( 'kslc_options_group', 'kslc_internal_show_thumbnail', [
@@ -187,7 +150,9 @@ function kslc_register_settings() {
     ]);
     register_setting( 'kslc_options_group', 'kslc_internal_thumbnail_position', [
         'type' => 'string',
-        'sanitize_callback' => 'sanitize_text_field',
+        'sanitize_callback' => function($value) {
+            return kslc_sanitize_choice( $value, KSLC_ALLOWED_THUMBNAIL_POSITIONS, 'right' );
+        },
         'default' => 'right',
     ]);
     register_setting( 'kslc_options_group', 'kslc_internal_show_badge', [
@@ -199,12 +164,16 @@ function kslc_register_settings() {
     // サムネイルサイズ設定
     register_setting( 'kslc_options_group', 'kslc_thumbnail_width', [
         'type' => 'integer',
-        'sanitize_callback' => 'absint',
+        'sanitize_callback' => function($value) {
+            return kslc_sanitize_int_range( $value, KSLC_THUMBNAIL_WIDTH_MIN, KSLC_THUMBNAIL_WIDTH_MAX, KSLC_DEFAULT_THUMBNAIL_WIDTH );
+        },
         'default' => KSLC_DEFAULT_THUMBNAIL_WIDTH,
     ]);
     register_setting( 'kslc_options_group', 'kslc_thumbnail_height', [
         'type' => 'integer',
-        'sanitize_callback' => 'absint',
+        'sanitize_callback' => function($value) {
+            return kslc_sanitize_int_range( $value, KSLC_THUMBNAIL_HEIGHT_MIN, KSLC_THUMBNAIL_HEIGHT_MAX, KSLC_DEFAULT_THUMBNAIL_HEIGHT );
+        },
         'default' => KSLC_DEFAULT_THUMBNAIL_HEIGHT,
     ]);
     
@@ -222,34 +191,45 @@ function kslc_register_settings() {
 }
 add_action('admin_init', 'kslc_register_settings');
 
-function kslc_clear_all_transients() {
-    if ( ! isset( $_POST['kslc_clear_cache_nonce'] ) || ! wp_verify_nonce( $_POST['kslc_clear_cache_nonce'], 'kslc_clear_cache_action' ) ) {
-        return;
-    }
-
-    if ( ! current_user_can( 'manage_options' ) ) {
-        return;
-    }
-
-    global $wpdb;
-    $prefix = $wpdb->get_blog_prefix();
-
-    // OGPキャッシュを削除
-    $transient_name = '_transient_kslc_ogp_data_%';
-    $sql = $wpdb->prepare(
-        "DELETE FROM {$prefix}options WHERE option_name LIKE %s",
-        $transient_name
-    );
-    $wpdb->query( $sql );
-
-    // ページタイトルキャッシュも削除
-    $page_title_transient = '_transient_kslc_page_title_%';
-    $sql = $wpdb->prepare(
-        "DELETE FROM {$prefix}options WHERE option_name LIKE %s",
-        $page_title_transient
-    );
-    $wpdb->query( $sql );
-
-    add_settings_error( 'kslc_messages', 'kslc_message', __( 'All link card caches have been cleared.', 'kashiwazaki-seo-link-card' ), 'updated' );
+/**
+ * 設定値が選択肢に含まれていればそれを、含まれていなければ既定値を返す
+ */
+function kslc_sanitize_choice( $value, $allowed, $default ) {
+    $value = sanitize_text_field( (string) $value );
+    return in_array( $value, $allowed, true ) ? $value : $default;
 }
-add_action('admin_init', 'kslc_clear_all_transients');
+
+/**
+ * 整数を [min, max] の範囲に丸める（数値でなければ既定値）
+ */
+function kslc_sanitize_int_range( $value, $min, $max, $default ) {
+    if ( ! is_numeric( $value ) ) {
+        return $default;
+    }
+    return max( $min, min( $max, (int) $value ) );
+}
+
+/**
+ * このプラグインが保存した全キャッシュ（OGP データ・ページタイトル）を削除する
+ *
+ * @return int 削除したキャッシュ件数
+ */
+function kslc_clear_cache() {
+    global $wpdb;
+
+    // 本体行（_transient_kslc_*）と有効期限行（_transient_timeout_kslc_*）の両方を消す
+    $deleted = (int) $wpdb->query(
+        $wpdb->prepare(
+            "DELETE FROM {$wpdb->options} WHERE option_name LIKE %s OR option_name LIKE %s",
+            $wpdb->esc_like( '_transient_kslc_' ) . '%',
+            $wpdb->esc_like( '_transient_timeout_kslc_' ) . '%'
+        )
+    );
+
+    // 外部オブジェクトキャッシュ利用時は transient が options テーブルに無いのでキャッシュ側も破棄する
+    if ( wp_using_ext_object_cache() ) {
+        wp_cache_flush();
+    }
+
+    return (int) ( $deleted / 2 );
+}

@@ -11,7 +11,7 @@
 <button class="hamburger-btn" aria-label="Menu" aria-expanded="false">&#9776;</button>
 
 <nav class="sidebar">
-<div class="sidebar-header"><h2 style="color:#fff;">Link Card</h2><span class="version">v1.0.8</span><img src="images/main-visual.png" alt="" style="width:100%;border-radius:4px;margin-top:8px;"></div>
+<div class="sidebar-header"><h2 style="color:#fff;">Link Card</h2><span class="version">v1.0.9</span><img src="images/main-visual.png" alt="" style="width:100%;border-radius:4px;margin-top:8px;"></div>
 <ul><li><a href="index.html">概要</a></li><li><a href="setup.html">インストール・初期設定</a></li><li><a href="link-card-usage.html">リンクカードの使い方</a></li><li><a href="troubleshooting.html">トラブルシューティング</a></li></ul>
 </nav>
 
@@ -66,7 +66,7 @@
 <div class="step">
 <span class="step-number">2</span>
 <div class="step-body">
-<p><strong>外部通信を確認</strong> - サーバーから外部URLへのHTTPリクエスト（wp_remote_get）がブロックされていないか確認してください。ファイアウォールやセキュリティプラグインの設定を確認してください。</p>
+<p><strong>外部通信を確認</strong> - サーバーから外部URLへのHTTPリクエスト（wp_safe_remote_get）がブロックされていないか確認してください。ファイアウォールやセキュリティプラグインの設定を確認してください。</p>
 </div>
 </div>
 
@@ -167,7 +167,7 @@
 </thead>
 <tbody>
 <tr><td>データベースに新しいテーブルは作られますか？</td><td>はい。クリック解析データを保存するための wp_kslc_analytics テーブルが作成されます。設定値は wp_options テーブル（kslc_*系）に保存されます。</td></tr>
-<tr><td>外部サービスと通信しますか？</td><td>はい。OGP情報を取得するために wp_remote_get を使用して、リンク先URLへHTTPリクエストを送信します。その他の外部サービスとの通信はありません。</td></tr>
+<tr><td>外部サービスと通信しますか？</td><td>はい。OGP情報を取得するために wp_safe_remote_get を使用して、リンク先URLへHTTPリクエストを送信します（ループバック／プライベートIP宛は拒否）。リンク先からサムネイル画像を取得できない場合は、Google Favicon API（www.google.com/s2/favicons）からサイトのファビコンを取得して表示します。それ以外の外部サービスとの通信はありません。</td></tr>
 <tr><td>REST APIは無効化できますか？</td><td>REST APIエンドポイント（/wp-json/kslc/v1/）はプラグインの機能の一部です。無効化が必要な場合は、WordPressのREST APIフィルターで制御してください。</td></tr>
 <tr><td>マルチサイトに対応していますか？</td><td>各サイトごとにプラグインを有効化・設定する必要があります。</td></tr>
 <tr><td>アンインストール時にデータは削除されますか？</td><td>プラグインをアンインストール（削除）すると、wp_optionsの設定データおよび wp_kslc_analytics テーブルが削除されます。</td></tr>
@@ -184,7 +184,7 @@
 <span></span>
 </nav>
 
-<footer class="manual-footer"><p>作者: <a href="https://www.tsuyoshikashiwazaki.jp/profile/" target="_blank" rel="noopener">柏崎剛（Tsuyoshi Kashiwazaki）</a></p><p>プラグイン: Kashiwazaki SEO Link Card v1.0.8</p></footer>
+<footer class="manual-footer"><p>作者: <a href="https://www.tsuyoshikashiwazaki.jp/profile/" target="_blank" rel="noopener">柏崎剛（Tsuyoshi Kashiwazaki）</a></p><p>プラグイン: Kashiwazaki SEO Link Card v1.0.9</p></footer>
 
 </main>
 

@@ -68,26 +68,15 @@
             const [idSearchError, setIdSearchError] = useState('');
 
             // 利用可能な投稿タイプを取得
+            // プラグイン自身のエンドポイントを使う（/wp/v2/types は show_in_rest 無効の投稿タイプを返さない）
             const getPostTypes = async () => {
                 try {
-                    const types = await apiFetch({ path: '/wp/v2/types' });
-                    // 除外する投稿タイプ（WordPress内部用）
-                    const excludeTypes = [
-                        'attachment', 'nav_menu_item', 'wp_block', 'wp_template',
-                        'wp_template_part', 'wp_global_styles', 'wp_navigation',
-                        'wp_font_family', 'wp_font_face'
-                    ];
-                    const publicTypes = Object.entries(types)
-                        .filter(([key, type]) => {
-                            // rest_baseがあり、除外リストに含まれていない投稿タイプを取得
-                            return type.rest_base && !excludeTypes.includes(key);
-                        })
-                        .map(([key, type]) => ({
-                            value: type.rest_base || key,
-                            label: type.name,
-                            slug: key
-                        }));
-                    setPostTypes(publicTypes);
+                    const types = await apiFetch({ path: '/kslc/v1/post-types' });
+                    setPostTypes((types || []).map(type => ({
+                        value: type.slug,
+                        label: type.label,
+                        slug: type.slug
+                    })));
                 } catch (error) {
                     console.error('Error fetching post types:', error);
                 }

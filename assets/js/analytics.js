@@ -1,56 +1,40 @@
-(function ($) {
+(function () {
     'use strict';
 
-    // DOMが読み込まれた後に実行
-    $(document).ready(function () {
-        // リンクカードのクリックを追跡
-        $('.kslc-link').on('click', function (e) {
-            var $link = $(this);
-            var url = $link.attr('href');
-            var title = $link.find('.kslc-title').text();
-            var pageUrl = window.location.href;
+    // リンクカードのクリックを計測する
+    // 遷移は妨げない（preventDefault しない）。送信は navigator.sendBeacon で行うため
+    // ページ離脱後も届き、setTimeout + window.open によるポップアップブロックも起きない
+    document.addEventListener('click', function (e) {
+        var link = e.target.closest ? e.target.closest('.kslc-link') : null;
+        if (!link) {
+            return;
+        }
 
-            // 内部リンクの場合は即座に遷移
-            var isExternal = $link.attr('target') === '_blank';
+        if (typeof kslc_ajax === 'undefined') {
+            return;
+        }
 
-            // kslc_ajax が定義されているかチェック
-            if (typeof kslc_ajax === 'undefined') {
-                console.error('KSLC Analytics: kslc_ajax is not defined!');
-                return;
-            }
+        var titleEl = link.querySelector('.kslc-title');
+        var data = new FormData();
+        data.append('action', 'kslc_track_click');
+        data.append('nonce', kslc_ajax.nonce);
+        data.append('url', link.getAttribute('href') || '');
+        data.append('title', titleEl ? titleEl.textContent : '');
+        data.append('page_url', window.location.href);
 
-            // AJAX でクリックデータを送信
-            $.ajax({
-                url: kslc_ajax.ajax_url,
-                type: 'POST',
-                data: {
-                    action: 'kslc_track_click',
-                    nonce: kslc_ajax.nonce,
-                    url: url,
-                    title: title,
-                    page_url: pageUrl,
-                    is_external: isExternal
-                },
-                timeout: 2000, // 2秒でタイムアウト
-                success: function (response) {
-                    if (!response.success) {
-                        console.error('KSLC Analytics: Server error:', response.data);
-                    }
-                },
-                error: function (xhr, status, error) {
-                    console.error('KSLC Analytics: AJAX error', status, error, xhr.responseText);
-                }
-            });
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon(kslc_ajax.ajax_url, data);
+            return;
+        }
 
-            // 外部リンクの場合は少し遅延してから遷移
-            if (isExternal) {
-                e.preventDefault();
-                setTimeout(function () {
-                    window.open(url, '_blank', 'noopener');
-                }, 100);
-                return false;
-            }
-        });
-    });
-
-})(jQuery);
+        // sendBeacon 非対応ブラウザ向け（keepalive で離脱後も送信を継続）
+        if (window.fetch) {
+            fetch(kslc_ajax.ajax_url, {
+                method: 'POST',
+                body: data,
+                credentials: 'same-origin',
+                keepalive: true
+            }).catch(function () {});
+        }
+    }, true);
+})();

@@ -84,3 +84,22 @@ define('KSLC_DEFAULT_THUMBNAIL_HEIGHT', 140);
 // デフォルトキャッシュ期間（時間）
 define('KSLC_DEFAULT_EXTERNAL_CACHE', 6);
 define('KSLC_DEFAULT_INTERNAL_CACHE', 72);
+
+// 選択可能なカラーテーマ / サムネイル位置（設定値のホワイトリスト）
+define('KSLC_ALLOWED_COLOR_THEMES', ['red', 'blue', 'green', 'purple', 'orange', 'gray', 'white', 'black', 'custom']);
+define('KSLC_ALLOWED_THUMBNAIL_POSITIONS', ['right', 'left']);
+
+// サムネイルサイズの許容範囲（px）— 設定画面の min/max と一致させる
+define('KSLC_THUMBNAIL_WIDTH_MIN', 100);
+define('KSLC_THUMBNAIL_WIDTH_MAX', 400);
+define('KSLC_THUMBNAIL_HEIGHT_MIN', 80);
+define('KSLC_THUMBNAIL_HEIGHT_MAX', 300);
+
+// 外部ページ取得の上限バイト数（OGP は <head> にあるため十分）
+define('KSLC_MAX_RESPONSE_BYTES', 2 * 1024 * 1024);
+
+// 代替画像の実在確認（HTTP リクエスト）を行う最大候補数
+define('KSLC_MAX_IMAGE_CHECKS', 5);
+
+// クリック計測の受付上限（IP アドレスあたり 1 分間の件数）
+define('KSLC_CLICK_RATE_LIMIT', 30);

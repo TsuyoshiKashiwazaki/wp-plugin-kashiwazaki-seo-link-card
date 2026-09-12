@@ -30,11 +30,10 @@ function kslc_enqueue_analytics_script() {
         return; // すでにエンキューされている場合は何もしない
     }
 
-    wp_enqueue_script('jquery');
     wp_enqueue_script(
         'kslc-analytics',
         $js_file_url,
-        ['jquery'],
+        [],
         filemtime($js_file_path),
         true
     );
@@ -58,35 +57,54 @@ function kslc_handle_click_tracking() {
         ob_clean();
     }
 
-    // POSTデータの存在確認
-    if (empty($_POST['nonce'])) {
-        wp_send_json_error(['message' => 'No nonce provided']);
+    // ノンス検証
+    $nonce = isset( $_POST['nonce'] ) ? sanitize_text_field( wp_unslash( $_POST['nonce'] ) ) : '';
+    if ( '' === $nonce || ! wp_verify_nonce( $nonce, 'kslc_analytics_nonce' ) ) {
+        wp_send_json_error(['message' => 'Security check failed'], 403);
     }
 
-    // ノンス検証
-    if (!wp_verify_nonce($_POST['nonce'], 'kslc_analytics_nonce')) {
-        wp_send_json_error(['message' => 'Security check failed']);
+    // 未ログインでも叩ける入口なので、IP あたりの受付件数を制限する（テーブル肥大化対策）
+    $ip_address = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '';
+    $rate_key   = 'kslc_click_rate_' . md5( $ip_address );
+    $rate_count = (int) get_transient( $rate_key );
+    if ( $rate_count >= KSLC_CLICK_RATE_LIMIT ) {
+        wp_send_json_error(['message' => 'Too many requests'], 429);
+    }
+    set_transient( $rate_key, $rate_count + 1, MINUTE_IN_SECONDS );
+
+    $url      = isset( $_POST['url'] ) ? sanitize_url( wp_unslash( $_POST['url'] ) ) : '';
+    $title    = isset( $_POST['title'] ) ? sanitize_text_field( wp_unslash( $_POST['title'] ) ) : '';
+    $page_url = isset( $_POST['page_url'] ) ? sanitize_url( wp_unslash( $_POST['page_url'] ) ) : '';
+
+    // リンク先は http(s) の URL に限る
+    if ( '' === $url || ! filter_var( $url, FILTER_VALIDATE_URL ) || ! kslc_is_http_url( $url ) ) {
+        wp_send_json_error(['message' => 'Invalid url'], 400);
+    }
+
+    // カードが置かれているページは必ずこのサイト上にある。外部 URL は受け付けない
+    if ( '' === $page_url || ! filter_var( $page_url, FILTER_VALIDATE_URL ) || ! kslc_is_same_site_url( $page_url ) ) {
+        wp_send_json_error(['message' => 'Invalid page_url'], 400);
     }
 
     global $wpdb;
     $table_name = $wpdb->prefix . 'kslc_analytics';
 
     // テーブルの存在確認
-    $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name;
+    $table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name;
     if (!$table_exists) {
         wp_send_json_error(['message' => 'Analytics table does not exist']);
     }
 
-    $url = sanitize_url($_POST['url']);
-    $title = sanitize_text_field($_POST['title']);
-    $page_url = sanitize_url($_POST['page_url']);
-    $is_external = (bool) $_POST['is_external'];
-    $ip_address = $_SERVER['REMOTE_ADDR'];
-    $user_agent = sanitize_text_field($_SERVER['HTTP_USER_AGENT']);
+    $user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : '';
 
     // URL正規化（#部分を削除）して統計では統合
     $normalized_url = kslc_normalize_url($url);
     $normalized_page_url = kslc_normalize_url($page_url); // ページURLも正規化
+
+    // カラム長（varchar(500)）を超えると STRICT モードで INSERT が失敗するため切り詰める
+    $normalized_url      = mb_substr( $normalized_url, 0, 500 );
+    $normalized_page_url = mb_substr( $normalized_page_url, 0, 500 );
+    $title               = mb_substr( $title, 0, 500 );
 
     // データベースに保存（正規化されたURLを使用）
     $result = $wpdb->insert(
@@ -95,7 +113,7 @@ function kslc_handle_click_tracking() {
             'url' => $normalized_url,
             'title' => $title,
             'page_url' => $normalized_page_url, // 正規化されたページURL
-            'ip_address' => $ip_address,
+            'ip_address' => mb_substr( $ip_address, 0, 45 ),
             'user_agent' => $user_agent,
             'clicked_at' => current_time('mysql')
         ],
@@ -112,6 +130,54 @@ function kslc_handle_click_tracking() {
         wp_send_json_error(['message' => 'Failed to track click']);
     }
 }
+
+/**
+ * http / https の URL か
+ */
+function kslc_is_http_url( $url ) {
+    $scheme = strtolower( (string) parse_url( $url, PHP_URL_SCHEME ) );
+    return in_array( $scheme, [ 'http', 'https' ], true );
+}
+
+/**
+ * このサイト上の URL か（www. の有無は同一視する）
+ */
+function kslc_is_same_site_url( $url ) {
+    $strip = function ( $host ) {
+        return preg_replace( '/^www\./i', '', strtolower( (string) $host ) );
+    };
+    $link_host = $strip( parse_url( $url, PHP_URL_HOST ) );
+    if ( '' === $link_host ) {
+        return false;
+    }
+    $site_hosts = array_unique( array_filter( [
+        $strip( parse_url( home_url(), PHP_URL_HOST ) ),
+        $strip( parse_url( site_url(), PHP_URL_HOST ) ),
+    ] ) );
+    return in_array( $link_host, $site_hosts, true );
+}
+
+/**
+ * target / rel 属性を組み立てる
+ * target="_blank" のときは利用者指定の rel があっても noopener を必ず含める
+ */
+function kslc_build_link_attrs( $atts, $is_external ) {
+    $target = ! empty( $atts['target'] ) ? $atts['target'] : ( $is_external ? '_blank' : '' );
+    $rel    = ! empty( $atts['rel'] ) ? preg_split( '/\s+/', trim( $atts['rel'] ) ) : [];
+    if ( '_blank' === $target && ! in_array( 'noopener', $rel, true ) ) {
+        $rel[] = 'noopener';
+    }
+
+    $output = '';
+    if ( '' !== $target ) {
+        $output .= ' target="' . esc_attr( $target ) . '"';
+    }
+    if ( ! empty( $rel ) ) {
+        $output .= ' rel="' . esc_attr( implode( ' ', array_unique( $rel ) ) ) . '"';
+    }
+    return $output;
+}
+
 add_action('wp_ajax_kslc_track_click', 'kslc_handle_click_tracking');
 add_action('wp_ajax_nopriv_kslc_track_click', 'kslc_handle_click_tracking');
 
@@ -260,19 +326,7 @@ function kslc_link_card_shortcode( $atts ) {
     }
 
     // target属性とrel属性の処理
-    $target_attr = '';
-    if ( ! empty( $atts['target'] ) ) {
-        $target_attr = ' target="' . esc_attr( $atts['target'] ) . '"';
-        if ( $atts['target'] === '_blank' && empty( $atts['rel'] ) ) {
-            $target_attr .= ' rel="noopener"';
-        }
-    } elseif ( $is_external ) {
-        $target_attr = ' target="_blank" rel="noopener"';
-    }
-    
-    if ( ! empty( $atts['rel'] ) ) {
-        $target_attr .= ' rel="' . esc_attr( $atts['rel'] ) . '"';
-    }
+    $target_attr = kslc_build_link_attrs( $atts, $is_external );
 
     $output .= '<a href="' . esc_url($url) . '"' . $target_attr . ' class="kslc-link">';
     $output .= '<div class="kslc-content">';
@@ -379,19 +433,7 @@ function kslc_render_fallback_card( $url, $atts = [] ) {
     }
 
     // target属性とrel属性の処理
-    $target_attr = '';
-    if ( ! empty( $atts['target'] ) ) {
-        $target_attr = ' target="' . esc_attr( $atts['target'] ) . '"';
-        if ( $atts['target'] === '_blank' && empty( $atts['rel'] ) ) {
-            $target_attr .= ' rel="noopener"';
-        }
-    } elseif ( $is_external ) {
-        $target_attr = ' target="_blank" rel="noopener"';
-    }
-
-    if ( ! empty( $atts['rel'] ) ) {
-        $target_attr .= ' rel="' . esc_attr( $atts['rel'] ) . '"';
-    }
+    $target_attr = kslc_build_link_attrs( $atts, $is_external );
 
     // HTML出力を構築
     $output = '<blockquote cite="' . esc_attr( $url ) . '" class="kslc-blockquote">';

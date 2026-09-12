@@ -20,8 +20,17 @@ function kslc_enqueue_admin_scripts( $hook ) {
         'kslc-admin-script',
         plugin_dir_url( __FILE__ ) . '../assets/js/admin.js',
         array( 'jquery', 'wp-color-picker' ),
-        KSLC_PLUGIN_VERSION,
+        kslc_asset_version( plugin_dir_path( __FILE__ ) . '../assets/js/admin.js' ),
         true
     );
 }
 add_action( 'admin_enqueue_scripts', 'kslc_enqueue_admin_scripts' );
+
+/**
+ * アセットのバージョン文字列（プラグインバージョン + ファイル更新時刻）
+ * 同じバージョン番号のまま中身を変えても CDN / ブラウザが旧ファイルを配信し続けないようにする
+ */
+function kslc_asset_version( $file_path ) {
+    $mtime = file_exists( $file_path ) ? filemtime( $file_path ) : 0;
+    return KSLC_PLUGIN_VERSION . '.' . $mtime;
+}

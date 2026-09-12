@@ -7,45 +7,20 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-/**
- * カスタム投稿タイプをREST APIで利用可能にする
- */
-function kslc_register_custom_post_types_rest_support() {
-    // すべての投稿タイプを取得
-    $post_types = get_post_types( array( 'public' => true ), 'names' );
-    
-    foreach ( $post_types as $post_type ) {
-        // REST APIサポートを追加
-        add_post_type_support( $post_type, 'rest' );
-        
-        // 投稿タイプオブジェクトを取得
-        $post_type_object = get_post_type_object( $post_type );
-        
-        if ( $post_type_object && ! $post_type_object->show_in_rest ) {
-            // REST APIで表示するように設定
-            global $wp_post_types;
-            if ( isset( $wp_post_types[ $post_type ] ) ) {
-                $wp_post_types[ $post_type ]->show_in_rest = true;
-                
-                // REST APIベースを設定（未設定の場合）
-                if ( empty( $wp_post_types[ $post_type ]->rest_base ) ) {
-                    $wp_post_types[ $post_type ]->rest_base = $post_type;
-                }
-                
-                // REST APIコントローラーを設定（未設定の場合）
-                if ( empty( $wp_post_types[ $post_type ]->rest_controller_class ) ) {
-                    $wp_post_types[ $post_type ]->rest_controller_class = 'WP_REST_Posts_Controller';
-                }
-            }
-        }
-    }
-}
-add_action( 'init', 'kslc_register_custom_post_types_rest_support', 99 );
 
 /**
  * カスタムREST APIエンドポイントの登録
  */
 function kslc_register_rest_routes() {
+    // 公開投稿タイプの一覧（ブロックエディタのプルダウン用）
+    register_rest_route( 'kslc/v1', '/post-types', array(
+        'methods'  => 'GET',
+        'callback' => 'kslc_get_public_post_types',
+        'permission_callback' => function() {
+            return current_user_can( 'edit_posts' );
+        },
+    ));
+
     // すべての投稿を取得するエンドポイント
     register_rest_route( 'kslc/v1', '/all-posts', array(
         'methods'  => 'GET',
@@ -67,6 +42,7 @@ function kslc_register_rest_routes() {
                 'type' => 'integer',
                 'default' => 100,
                 'sanitize_callback' => 'absint',
+                'validate_callback' => 'kslc_validate_per_page',
             ),
         ),
     ));
@@ -104,11 +80,37 @@ function kslc_register_rest_routes() {
                 'type' => 'integer',
                 'default' => 20,
                 'sanitize_callback' => 'absint',
+                'validate_callback' => 'kslc_validate_per_page',
             ),
         ),
     ));
 }
 add_action( 'rest_api_init', 'kslc_register_rest_routes' );
+
+/**
+ * per_page は 1〜200 に制限する
+ */
+function kslc_validate_per_page( $value ) {
+    $value = (int) $value;
+    return $value >= 1 && $value <= 200;
+}
+
+/**
+ * 公開投稿タイプの一覧（添付ファイルは除く）
+ */
+function kslc_get_public_post_types() {
+    $types = array();
+    foreach ( get_post_types( array( 'public' => true ), 'objects' ) as $post_type ) {
+        if ( 'attachment' === $post_type->name ) {
+            continue;
+        }
+        $types[] = array(
+            'slug'  => $post_type->name,
+            'label' => $post_type->labels->name,
+        );
+    }
+    return rest_ensure_response( $types );
+}
 
 /**
  * すべての投稿タイプから投稿を取得
@@ -123,8 +125,10 @@ function kslc_get_all_posts( $request ) {
     // 取得する投稿タイプを決定
     if ( $post_type_filter === 'all' ) {
         $post_types = get_post_types( array( 'public' => true ), 'names' );
-    } else {
+    } elseif ( post_type_exists( $post_type_filter ) && is_post_type_viewable( $post_type_filter ) ) {
         $post_types = array( $post_type_filter );
+    } else {
+        return new WP_Error( 'invalid_post_type', 'Invalid post type', array( 'status' => 400 ) );
     }
 
     // 検索キーワードがある場合はタイトル部分一致検索用のフィルターを追加

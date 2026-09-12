@@ -3,7 +3,7 @@
 ![WordPress](https://img.shields.io/badge/WordPress-5.5%2B-blue.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.0%2B-blue.svg)
 ![License](https://img.shields.io/badge/license-GPL--2.0%2B-green.svg)
-![Version](https://img.shields.io/badge/version-1.0.8-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.9-blue.svg)
 
 URLを記述するだけで、ページの情報を取得してカード形式で表示するWordPressプラグインです。OGPデータの自動取得、内部リンク最適化、クリックトラッキング、カスタマイズ可能なデザインなど、豊富な機能を搭載しています。
 
@@ -62,7 +62,7 @@ URLを記述するだけで、ページの情報を取得してカード形式�
 
 ### 7. 開発者向け機能
 #### REST API
-- カスタムエンドポイント `/kslc/v1/all-posts`
+- カスタムエンドポイント `/kslc/v1/all-posts`、`/kslc/v1/post/{id}`、`/kslc/v1/search-by-url`、`/kslc/v1/post-types`（いずれも `edit_posts` 権限が必要）
 - 投稿タイプフィルター、検索機能
 - エディタ統合用のデータ取得
 

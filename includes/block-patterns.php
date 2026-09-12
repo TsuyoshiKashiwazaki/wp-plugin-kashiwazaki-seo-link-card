@@ -122,11 +122,12 @@ add_action( 'init', 'kslc_register_block_patterns' );
  * ブロックエディタ用のスクリプト登録
  */
 function kslc_enqueue_block_editor_assets() {
+    $script_path = plugin_dir_path( dirname( __FILE__ ) ) . 'assets/js/block-editor.js';
     wp_enqueue_script(
         'kslc-block-editor',
         plugin_dir_url( dirname( __FILE__ ) ) . 'assets/js/block-editor.js',
         array( 'wp-blocks', 'wp-element', 'wp-editor', 'wp-components', 'wp-i18n' ),
-        KSLC_PLUGIN_VERSION,
+        kslc_asset_version( $script_path ),
         true
     );
 

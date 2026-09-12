@@ -42,17 +42,9 @@ if ( defined( 'KSLC_PLUGIN_FILE' ) ) {
 function kslc_options_page_html() {
     // キャッシュクリア処理
     if ( isset( $_POST['kslc_clear_cache'] ) &&
+         current_user_can( 'manage_options' ) &&
          check_admin_referer( 'kslc_clear_cache_action', 'kslc_clear_cache_nonce' ) ) {
-        global $wpdb;
-
-        // kslc_ogp_data_ で始まる全てのトランジェントを削除
-        $deleted_count = $wpdb->query(
-            "DELETE FROM {$wpdb->options}
-             WHERE option_name LIKE '_transient_kslc_ogp_data_%'
-             OR option_name LIKE '_transient_timeout_kslc_ogp_data_%'
-             OR option_name LIKE '_transient_kslc_page_title_%'
-             OR option_name LIKE '_transient_timeout_kslc_page_title_%'"
-        );
+        $deleted_count = kslc_clear_cache();
 
         add_settings_error(
             'kslc_messages',
@@ -372,147 +364,8 @@ function kslc_get_page_title($page_url) {
         return $formatted_title ?: $page_url;
 
     } else {
-        // 外部ページの処理（スクレイピング）
-        return kslc_get_external_page_title($clean_url);
-    }
-}
-
-// 外部ページのタイトルをスクレイピングで取得
-function kslc_get_external_page_title($url) {
-    // デバッグ：スクレイピング無効化オプション
-    if (defined('KSLC_DISABLE_SCRAPING') && KSLC_DISABLE_SCRAPING) {
-        $parsed = parse_url($url);
-        return isset($parsed['host']) ? $parsed['host'] . ' (スクレイピング無効)' : $url;
-    }
-
-    try {
-        // キャッシュキーを生成
-        $cache_key = 'kslc_page_title_' . md5($url);
-        $cached_title = get_transient($cache_key);
-
-        if ($cached_title !== false) {
-            return $cached_title;
-        }
-
-        // デバッグログ（無効化）
-        if (defined('WP_DEBUG') && WP_DEBUG && defined('KSLC_ENABLE_DEBUG_LOGS')) {
-            error_log('KSLC Debug: Getting external page title for: ' . $url);
-            error_log('KSLC Debug: Output buffer level before scraping: ' . ob_get_level());
-        }
-
-        // OGP取得機能を流用（安全に実行）
-        $title = '';
-        if (function_exists('kslc_get_ogp_data')) {
-            $ogp_data = kslc_get_ogp_data($url);
-            if ($ogp_data && !empty($ogp_data['title'])) {
-                $title = $ogp_data['title'];
-            }
-        }
-
-        // OGPで取得できない場合は直接HTMLを取得
-        if (empty($title)) {
-            $title = kslc_scrape_title_from_html($url);
-        }
-
-        // デバッグログ（無効化）
-        if (defined('WP_DEBUG') && WP_DEBUG && defined('KSLC_ENABLE_DEBUG_LOGS')) {
-            error_log('KSLC Debug: Output buffer level after scraping: ' . ob_get_level());
-            error_log('KSLC Debug: Retrieved title: ' . $title);
-        }
-
-        if (empty($title)) {
-            // タイトルが取得できない場合はドメイン名を使用
-            $parsed = parse_url($url);
-            $title = isset($parsed['host']) ? $parsed['host'] : $url;
-        }
-
-        // 3時間キャッシュ
-        set_transient($cache_key, $title, 3 * HOUR_IN_SECONDS);
-
-        return $title;
-
-    } catch (Exception $e) {
-        // エラー時のログ（無効化）
-        if (defined('WP_DEBUG') && WP_DEBUG && defined('KSLC_ENABLE_DEBUG_LOGS')) {
-            error_log('KSLC Debug: Exception in external page title: ' . $e->getMessage());
-        }
-
-        // エラー時はドメイン名をフォールバック
-        $parsed = parse_url($url);
-        return isset($parsed['host']) ? $parsed['host'] : $url;
-    }
-}
-
-// HTMLからtitleタグを直接抽出
-function kslc_scrape_title_from_html($url) {
-    try {
-        // Use filtered values from ogp.php for consistency
-        $user_agent = apply_filters( 'kslc_request_user_agent', KSLC_USER_AGENT );
-
-        // 出力を抑制して実行
-        $response = wp_remote_get($url, [
-            'timeout' => 5, // タイムアウトを短縮
-            'redirection' => 3, // リダイレクト回数制限
-            'user-agent' => $user_agent,
-            'headers' => [
-                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language' => 'ja,en-US;q=0.7,en;q=0.3',
-                'Accept-Encoding' => 'gzip, deflate',
-                'Connection' => 'keep-alive',
-            ],
-            'sslverify' => false, // SSL証明書の検証をスキップ（問題がある場合）
-        ]);
-
-        if (is_wp_error($response)) {
-            return '';
-        }
-
-        $status_code = wp_remote_retrieve_response_code($response);
-        if ($status_code !== 200) {
-            return '';
-        }
-
-        $body = wp_remote_retrieve_body($response);
-        if (empty($body)) {
-            return '';
-        }
-
-        $content_type = wp_remote_retrieve_header($response, 'content-type');
-
-        // HTMLでない場合は処理しない
-        if (!empty($content_type) && strpos($content_type, 'text/html') === false) {
-            return '';
-        }
-
-        // titleタグを抽出（より安全な正規表現）
-        if (preg_match('/<title[^>]*>(.*?)<\/title>/isu', $body, $matches)) {
-            $title = $matches[1];
-
-            // HTMLエンティティをデコード
-            $title = html_entity_decode($title, ENT_QUOTES | ENT_HTML401, 'UTF-8');
-            $title = trim($title);
-
-            // 改行やタブを削除
-            $title = preg_replace('/\s+/', ' ', $title);
-
-            // 空文字の場合は処理しない
-            if (empty($title)) {
-                return '';
-            }
-
-            // 長すぎる場合は切り詰め
-            if (mb_strlen($title) > 100) {
-                $title = mb_substr($title, 0, 97) . '...';
-            }
-
-            return $title;
-        }
-
-        return '';
-
-    } catch (Exception $e) {
-        // エラー時は空文字を返す
-        return '';
+        // 外部URLはこのサイトのページではあり得ない（正規の計測では発生しない）。取得に行かずホスト名だけ返す
+        return $page_host;
     }
 }
 
@@ -638,7 +491,7 @@ function kslc_analytics_page_html() {
     $table_name = $wpdb->prefix . 'kslc_analytics';
 
     // デバッグ: テーブルの存在確認
-    $table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name;
+    $table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name;
     $total_records = 0;
     if ($table_exists) {
         $total_records = $wpdb->get_var("SELECT COUNT(*) FROM $table_name");
@@ -681,7 +534,7 @@ function kslc_analytics_page_html() {
 
         <?php
         // テーブル作成処理
-        if (isset($_POST['kslc_create_table']) && wp_verify_nonce($_POST['kslc_create_table_nonce'], 'kslc_create_table')) {
+        if (isset($_POST['kslc_create_table']) && current_user_can('manage_options') && isset($_POST['kslc_create_table_nonce']) && wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['kslc_create_table_nonce'])), 'kslc_create_table')) {
             kslc_create_analytics_table();
             echo '<div class="notice notice-success"><p>データベーステーブルの作成を実行しました。ページを更新してください。</p></div>';
             echo '<script>setTimeout(function(){ location.reload(); }, 2000);</script>';
@@ -709,7 +562,7 @@ function kslc_analytics_page_html() {
                     <option value="">-- ページを選択してください --</option>
                     <?php foreach ($pages_with_links as $page): ?>
                         <option value="<?php echo esc_attr($page->page_url); ?>" <?php selected($selected_page, $page->page_url); ?>>
-                            <?php echo esc_html($page->page_title); ?> (<?php echo $page->total_clicks; ?>クリック)
+                            <?php echo esc_html($page->page_title); ?> (<?php echo (int) $page->total_clicks; ?>クリック)
                         </option>
                     <?php endforeach; ?>
                 </select>
@@ -798,9 +651,9 @@ function kslc_analytics_page_html() {
                                     <strong><?php echo number_format($link->click_count); ?></strong>
                                 </td>
                                 <td>
-                                    <strong><?php echo $link->percentage; ?>%</strong>
+                                    <strong><?php echo esc_html( $link->percentage ); ?>%</strong>
                                     <div style="background: #e0e0e0; border-radius: 3px; height: 6px; margin-top: 3px;">
-                                        <div style="background: #0073aa; height: 100%; width: <?php echo $link->percentage; ?>%; border-radius: 3px;"></div>
+                                        <div style="background: #0073aa; height: 100%; width: <?php echo (float) $link->percentage; ?>%; border-radius: 3px;"></div>
                                     </div>
                                 </td>
                             </tr>

@@ -5,6 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2026-09-12
+
+### Fixed
+- 相対パスの画像URLを絶対URLに変換する処理を RFC 3986 準拠に書き直し（`kslc_relative_to_absolute_url`）
+  - 末尾が `/` のページURL（例: `https://example.com/dir/`）で1階層上に外れ、存在しない画像URLを生成していた
+  - 正規表現の `.` が未エスケープで、1文字・2文字のディレクトリ名がパスから消えていた
+- `<base href>` を考慮して相対URLを解決するように修正
+- リダイレクト後の最終URLを相対URL解決の基準にするように修正
+- OGP画像が無い場合の代替画像も実在確認（HTTP 2xx かつ image/*）を通すように修正（404 の画像がそのまま出力されていた）
+- クエリ文字列付きの画像URL（`image.jpg?v=2`）が代替画像候補から除外されていた問題を修正
+- HEAD を受け付けないサーバーの画像を無効扱いしていた問題を修正（GET で再確認）
+- PHP 8 で相手ページの charset 名が不正なとき `mb_convert_encoding` の ValueError で致命的エラーになっていた問題を修正
+- PHP 8.2 で非推奨の `mb_convert_encoding(..., 'HTML-ENTITIES')` の使用をやめ、UTF-8 宣言を前置して DOM を読み込むように変更
+- HTTPヘッダーが ISO-8859-1 等を主張していても文書が UTF-8 を宣言し中身も妥当なら UTF-8 として扱うように修正（文字化け対策）
+- HTML 以外（PDF・画像）のURLを HTML として解析していた問題を修正（簡易カードにフォールバック）
+- 外部リンクのクリック計測で `setTimeout` + `window.open` を使っていたため、ポップアップブロックで遷移しないことがあった問題を修正（`navigator.sendBeacon` に変更、遷移は妨げない）
+- キャッシュクリアが二重に実行され、削除件数の表示が実態と異なっていた問題を修正
+- 外部オブジェクトキャッシュ利用時にキャッシュクリアが効かなかった問題を修正
+- 投稿タイプのプルダウンが `show_in_rest` 無効の投稿タイプを表示できない構造だった問題を修正（プラグイン独自の `/kslc/v1/post-types` を使用）
+
+### Security
+- 外部ページ・画像の取得を `wp_safe_remote_get` / `wp_safe_remote_head` に変更（ループバック／プライベートIP宛の要求を拒否）
+- 取得する応答サイズに上限を設定（2MB）
+- クリック計測（未ログインで利用可能）にレート制限（IP あたり 30 件/分）と入力検証（`url` は http(s) のみ、`page_url` は自サイトのみ、カラム長で切り詰め）を追加
+- 統計画面が、計測データ中の任意の外部URLへサーバーから HTTP 要求を送っていた問題を修正（外部URLは取得しない）
+- `sslverify => false` での外部取得を廃止
+- 管理画面の操作に権限確認（`manage_options`）を追加
+- 設定値（カラーテーマ・画像位置・サムネイルサイズ）をホワイトリスト／範囲で検証
+
+### Changed
+- サイト内の全公開投稿タイプの `show_in_rest` を強制的に有効化していた処理を削除（他プラグイン／テーマの登録内容を書き換えない）
+- 他プラグインの出力バッファを破棄しうる `register_shutdown_function` 処理を削除
+- `target="_blank"` のとき、`rel` 属性を指定していても `noopener` を必ず付与
+- クリック計測スクリプトの jQuery 依存を解消
+- 管理画面・ブロックエディタ用スクリプトの `?ver=` にファイル更新時刻を含め、内容変更で必ずURLが変わるように変更
+
 ## [1.0.8] - 2026-02-05
 
 ### Added
