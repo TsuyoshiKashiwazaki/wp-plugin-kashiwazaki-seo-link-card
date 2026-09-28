@@ -192,6 +192,10 @@ function kslc_get_ogp_data( $url, $post_id = 0 ) {
     $cached_data = get_transient( $transient_key );
 
     if ( false !== $cached_data ) {
+        // 取得失敗（404・接続失敗など）の記録: 一定時間は同じ URL を取りに行かず簡易カードを出す
+        if ( is_array( $cached_data ) && ! empty( $cached_data['kslc_failed'] ) ) {
+            return false;
+        }
         return $cached_data;
     }
 
@@ -242,15 +246,23 @@ function kslc_get_ogp_data( $url, $post_id = 0 ) {
         'Accept-Language' => 'ja,en-US;q=0.9,en;q=0.8',
     ) );
 
-    // wp_safe_remote_get: ループバック／プライベートIP・不正ポート宛の要求（SSRF）を拒否する
+    // wp_safe_remote_get: ループバック／プライベートIP・不正ポート宛の要求（SSRF）を拒否する。リダイレクト先も各ホップで検証される
+    // redirection: 追随する上限回数。超過やループは Requests が "Too many redirects" で打ち切り WP_Error になる
     $response = wp_safe_remote_get( $url, array(
         'timeout'             => $timeout,
+        'redirection'         => KSLC_MAX_REDIRECTS,
         'user-agent'          => $user_agent,
         'headers'             => $headers,
         'limit_response_size' => KSLC_MAX_RESPONSE_BYTES,
     ) );
 
-    if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+    if ( is_wp_error( $response ) ) {
+        kslc_handle_fetch_failure( $url, $transient_key, 0, $response->get_error_message(), $response->get_error_code() );
+        return false;
+    }
+    $status_code = (int) wp_remote_retrieve_response_code( $response );
+    if ( 200 !== $status_code ) {
+        kslc_handle_fetch_failure( $url, $transient_key, $status_code, '' );
         return false;
     }
 
@@ -272,8 +284,11 @@ function kslc_get_ogp_data( $url, $post_id = 0 ) {
     $dom = kslc_load_html_dom( $html );
     $xpath = new DOMXPath( $dom );
 
+    // リダイレクト後の最終URL（転送先への自動追随でカードの href に使う。相対URL解決の基準にもなる）
+    $final_url = kslc_get_response_final_url( $response, $url );
+
     // 相対URL解決の基準: リダイレクト後の最終URL → <base href> があればそれを優先
-    $base_url = kslc_get_response_final_url( $response, $url );
+    $base_url = $final_url;
     $base_tag = $xpath->query( '//base/@href' );
     if ( $base_tag->length > 0 ) {
         $base_href = trim( $base_tag->item( 0 )->nodeValue );
@@ -352,11 +367,38 @@ function kslc_get_ogp_data( $url, $post_id = 0 ) {
     }
 
 
+    // 恒久的な転送（301 / 308 だけ）で移転していた場合は最終URLをキャッシュに一緒に保存する（出力時に href へ差し替える。ショートコードの URL は変えない）
+    // 302 / 307 などの一時的な転送を 1 つでも含む経路は保存しない（アフィリエイトの計測 URL・短縮 URL・同意画面を素通りしないため）
+    $permanent_final_url = kslc_get_permanent_final_url( $response, $url );
+    if ( '' !== $permanent_final_url && $permanent_final_url !== $url && kslc_is_http_url( $permanent_final_url ) ) {
+        $ogp_data['final_url'] = $permanent_final_url;
+    }
+
+    // 正常に取得できたので、リンク切れ一覧に載っていれば外す
+    kslc_record_link_ok( $url );
+
     // 外部リンク用のキャッシュ期間を使用
     $cache_period_hours = get_option( 'kslc_external_cache_period', get_option( 'kslc_cache_period', 6 ) );
     set_transient( $transient_key, $ogp_data, $cache_period_hours * HOUR_IN_SECONDS );
 
     return $ogp_data;
+}
+
+/**
+ * 取得失敗時の処理: 失敗を一定時間キャッシュして再取得を抑え、404 / 410 / 5xx / 接続失敗ならリンク切れとして記録する
+ *
+ * @param string $url           取得しようとした URL
+ * @param string $transient_key OGP キャッシュのキー
+ * @param int    $status        HTTP ステータス（WP_Error の場合は 0）
+ * @param string $error         エラーメッセージ
+ * @param string $error_code    WP_Error のコード（WP_HTTP_BLOCK_EXTERNAL による遮断などはリンク切れとして記録しない）
+ */
+function kslc_handle_fetch_failure( $url, $transient_key, $status, $error = '', $error_code = '' ) {
+    set_transient( $transient_key, array( 'kslc_failed' => true, 'status' => (int) $status ), KSLC_FAILURE_CACHE_SECONDS );
+
+    if ( kslc_is_problem_status( $status, $error_code ) ) {
+        kslc_record_link_failure( $url, $status, $error, kslc_current_page_id() );
+    }
 }
 
 /**
@@ -672,7 +714,44 @@ function kslc_load_html_dom( $html ) {
 }
 
 /**
- * リダイレクト後の最終URLを取得する（取得できなければ元のURL）
+ * 恒久的な転送（301 Moved Permanently / 308 Permanent Redirect）だけを経た最終URLを返す
+ * - 転送が無ければ元の URL
+ * - 経路のどこかに 302 / 307 / 303 などの一時的な転送があれば ''（href は元の URL のまま。RFC 9110 §15.4.3 / §15.4.8: 一時的な転送では
+ *   クライアントは今後も元の URI を使い続けるべき）
+ * - 各ホップの status は WordPress HTTP API が使う Requests の Response::$history（転送前の Response の配列）の $status_code から読む
+ *
+ * @param array  $response wp_safe_remote_get() の戻り値
+ * @param string $url      要求した URL
+ * @return string 最終URL、または ''
+ */
+function kslc_get_permanent_final_url( $response, $url ) {
+    if ( ! is_array( $response ) || ! isset( $response['http_response'] ) || ! is_object( $response['http_response'] )
+        || ! method_exists( $response['http_response'], 'get_response_object' ) ) {
+        return '';
+    }
+    $requests_response = $response['http_response']->get_response_object();
+    if ( ! is_object( $requests_response ) ) {
+        return '';
+    }
+    $history = ( isset( $requests_response->history ) && is_array( $requests_response->history ) ) ? $requests_response->history : array();
+    if ( empty( $history ) ) {
+        return $url;
+    }
+    foreach ( $history as $hop ) {
+        $code = ( is_object( $hop ) && isset( $hop->status_code ) ) ? (int) $hop->status_code : 0;
+        if ( 301 !== $code && 308 !== $code ) {
+            return '';
+        }
+    }
+    $final_url = isset( $requests_response->url ) ? (string) $requests_response->url : '';
+    if ( '' === $final_url || ! filter_var( $final_url, FILTER_VALIDATE_URL ) ) {
+        return '';
+    }
+    return $final_url;
+}
+
+/**
+ * リダイレクト後の最終URLを取得する（取得できなければ元のURL）。転送の種類は問わない（相対URL解決の基準用）
  */
 function kslc_get_response_final_url( $response, $fallback_url ) {
     if ( is_array( $response ) && isset( $response['http_response'] ) && is_object( $response['http_response'] )

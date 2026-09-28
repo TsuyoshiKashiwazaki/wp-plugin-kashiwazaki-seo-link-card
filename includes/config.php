@@ -103,3 +103,31 @@ define('KSLC_MAX_IMAGE_CHECKS', 5);
 
 // クリック計測の受付上限（IP アドレスあたり 1 分間の件数）
 define('KSLC_CLICK_RATE_LIMIT', 30);
+
+// ---- 1.1.0: 転送先への自動追随 / リンク切れ検知 / rel 自動付与 ----
+
+// リダイレクト追随の上限回数（WP_Http の redirection 引数。超過やループは Requests が "Too many redirects" で打ち切り WP_Error になる）
+define('KSLC_MAX_REDIRECTS', 5);
+
+// 取得失敗（404・接続失敗など）を記憶しておく秒数。この間は同じ URL を表示のたびに取得しに行かない
+define('KSLC_FAILURE_CACHE_SECONDS', HOUR_IN_SECONDS);
+
+// リンク切れ一覧の最大保持件数（超えた分は最終確認日時の古いものから捨てる）
+define('KSLC_BROKEN_LINKS_MAX', 500);
+
+// 1 件のリンク切れに紐づけて記憶する掲載ページ数の上限
+define('KSLC_BROKEN_LINK_MAX_PAGES', 20);
+
+// 定期チェック 1 回の実行時間の目安（秒）。超えたら残りは 1 分後の単発イベントに引き継ぐ
+define('KSLC_LINK_CHECK_TIME_BUDGET', 20);
+
+// 定期チェックの HTTP タイムアウト（秒）
+define('KSLC_LINK_CHECK_TIMEOUT', 8);
+
+// 定期チェックの既定間隔（時間）と許容範囲
+define('KSLC_DEFAULT_LINK_CHECK_INTERVAL', 24);
+define('KSLC_LINK_CHECK_INTERVAL_MIN', 1);
+define('KSLC_LINK_CHECK_INTERVAL_MAX', 720);
+
+// rel 自動付与で選べる値（Google の「発リンクの修飾」: 広告・有料リンクは sponsored、それ以外で関連付けたくない場合は nofollow）
+define('KSLC_ALLOWED_AUTO_REL_VALUES', ['sponsored', 'nofollow']);

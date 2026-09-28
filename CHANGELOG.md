@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.10] - 2026-09-28
+
+### Added
+- 転送先への自動追随（管理画面で ON/OFF、既定 ON）
+  - リンク先が恒久的に移転（301 / 308）していたら、OGP 取得時に得たリダイレクト後の最終 URL をカードの `href` と `cite` に使う（最終 URL は OGP キャッシュに一緒に保存）。302 / 307 などの一時的な転送を経路に含む場合は追随せず元の URL のまま（アフィリエイトの計測 URL・短縮 URL・同意画面を素通りしない）。転送後の URL に `#fragment` が無ければショートコードの URL の `#fragment` を引き継ぐ（RFC 9110 §10.2.2 の転送時の fragment 継承と同じ扱い）
+  - 内部リンクは `get_permalink()` の正規 URL を使う（末尾スラッシュ抜け・http/https の揺れ・旧スラッグを正規化）。`#fragment` と `?query` は保ち、パーマリンクとパスが異なる URL（`/page/2/` など）は変更しない
+  - 追随は最大 5 回（`KSLC_MAX_REDIRECTS`）。超過やループは WordPress HTTP API が打ち切り、簡易カードにフォールバック
+  - ショートコードに書いた URL は変更しない（出力時にだけ差し替える）
+- サムネイル `<img>` に `loading="lazy"`・`decoding="async"` と、設定のサムネイルサイズに合わせた `width` / `height` 属性を付与（通常カード・簡易カードの両方）
+- リンク切れの検知
+  - OGP 取得時に 404 / 410 / 5xx / 接続失敗を記録し、`post_id` 指定の投稿が存在しない場合も記録
+  - WP-Cron による定期チェック（既定 1 日 1 回、1〜720 時間で設定可能）。公開済み投稿の本文からリンクカードのショートコードを集めて確認し、1 回 20 秒の時間予算を超えた分は 1 分後の単発イベントに引き継ぐ
+  - 管理画面に「リンク切れ一覧」（URL・掲載ページ・ステータス・最終確認日時）を追加。「今すぐチェック」「一覧をクリア」ボタン付き
+  - `post_id` 指定のカードは公開状態にかかわらず `?p=ID` 形式をキーに記録（表示時と定期チェックで同じキー）。定期チェックが全件を確認し終えたら、今回の対象に無く走査開始より前に記録された項目（復旧したリンク・本文から消したカード）を一覧から外し、件数を「前回の完了」に表示
+  - Kashiwazaki SEO Link Doctor が有効な場合は一覧画面で案内を表示（本機能はカードの URL 限定の自動検知として併用する）
+- rel の自動付与: 管理画面で登録したドメイン（サブドメイン含む）へのカードに `rel="sponsored"` または `rel="nofollow"` を自動付与。ショートコードの `rel` 指定があればそちらを優先
+
+### Changed
+- 管理画面をタブ切り替えに再構成（デザイン／キャッシュ／リンク先の扱い／リンク切れ一覧／リンク統計／使い方）。「リンク統計」のサブメニューは廃止し、同じページのタブへ移動。設定グループもタブごとに分割（`kslc_design_group` / `kslc_cache_group` / `kslc_links_group`）
+- 取得に失敗した URL は 1 時間（`KSLC_FAILURE_CACHE_SECONDS`）再取得しない（リンク切れ URL を表示のたびに取得しに行かない）
+- 外部リンク／内部リンクの判定を、実際にリンクする URL（転送後）で行うように変更
+- `WP_HTTP_BLOCK_EXTERNAL` による遮断（`http_request_not_executed`）はリンク切れとして記録しない
+
 ## [1.0.9] - 2026-09-12
 
 ### Fixed

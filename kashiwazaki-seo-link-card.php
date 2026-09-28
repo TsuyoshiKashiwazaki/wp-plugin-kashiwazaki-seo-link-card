@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Kashiwazaki SEO Link Card
  * Plugin URI: https://www.tsuyoshikashiwazaki.jp
- * Version: 1.0.9
+ * Version: 1.0.10
  * Author: 柏崎剛 (Tsuyoshi Kashiwazaki)
  * Author URI: https://www.tsuyoshikashiwazaki.jp/profile/
  * Description: URLを記述するだけで、ページの情報を取得してカード形式で表示するプラグインです。
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KSLC_PLUGIN_VERSION', '1.0.9' );
+define( 'KSLC_PLUGIN_VERSION', '1.0.10' );
 define( 'KSLC_PLUGIN_FILE', __FILE__ );
 
 // User-Agent for external requests (can be filtered)
@@ -44,6 +44,7 @@ if (!defined('KSLC_INCLUDES_LOADED')) {
     require_once plugin_dir_path( __FILE__ ) . 'includes/admin-scripts.php';
     require_once plugin_dir_path( __FILE__ ) . 'includes/block-patterns.php';
     require_once plugin_dir_path( __FILE__ ) . 'includes/rest-api.php';
+    require_once plugin_dir_path( __FILE__ ) . 'includes/link-check.php';
 }
 
 // プラグイン有効化時にデータベーステーブルを作成
@@ -78,9 +79,50 @@ function kslc_create_analytics_table() {
 }
 register_activation_hook(__FILE__, 'kslc_create_analytics_table');
 
+// リンク切れの定期チェック（WP-Cron）: 有効化時に登録し、無効化時に必ず解除する
+register_activation_hook(__FILE__, 'kslc_schedule_link_check');
+register_deactivation_hook(__FILE__, 'kslc_unschedule_link_check');
+
 function kslc_register_settings() {
+    // ---- リンク先の扱い（1.1.0）----
+
+    // 転送先への自動追随（既定 ON）
+    register_setting( 'kslc_links_group', 'kslc_follow_redirects', [
+        'type' => 'boolean',
+        'sanitize_callback' => 'rest_sanitize_boolean',
+        'default' => true,
+    ]);
+
+    // rel 自動付与: 対象ドメイン（改行区切り）と付与する値
+    register_setting( 'kslc_links_group', 'kslc_auto_rel_domains', [
+        'type' => 'string',
+        'sanitize_callback' => 'kslc_sanitize_domain_list',
+        'default' => '',
+    ]);
+    register_setting( 'kslc_links_group', 'kslc_auto_rel_value', [
+        'type' => 'string',
+        'sanitize_callback' => function($value) {
+            return kslc_sanitize_choice( $value, KSLC_ALLOWED_AUTO_REL_VALUES, 'sponsored' );
+        },
+        'default' => 'sponsored',
+    ]);
+
+    // リンク切れの定期チェック: 有効 / 間隔（時間）
+    register_setting( 'kslc_links_group', 'kslc_link_check_enabled', [
+        'type' => 'boolean',
+        'sanitize_callback' => 'rest_sanitize_boolean',
+        'default' => true,
+    ]);
+    register_setting( 'kslc_links_group', 'kslc_link_check_interval', [
+        'type' => 'integer',
+        'sanitize_callback' => function($value) {
+            return kslc_sanitize_int_range( $value, KSLC_LINK_CHECK_INTERVAL_MIN, KSLC_LINK_CHECK_INTERVAL_MAX, KSLC_DEFAULT_LINK_CHECK_INTERVAL );
+        },
+        'default' => KSLC_DEFAULT_LINK_CHECK_INTERVAL,
+    ]);
+
     // 既存のキャッシュ設定（下位互換性のため残す）
-    register_setting( 'kslc_options_group', 'kslc_cache_period', [
+    register_setting( 'kslc_cache_group', 'kslc_cache_period', [
         'type' => 'integer',
         'sanitize_callback' => function($value) {
             $value = absint($value);
@@ -90,7 +132,7 @@ function kslc_register_settings() {
     ]);
 
     // 外部リンク用キャッシュ期間
-    register_setting( 'kslc_options_group', 'kslc_external_cache_period', [
+    register_setting( 'kslc_cache_group', 'kslc_external_cache_period', [
         'type' => 'integer',
         'sanitize_callback' => function($value) {
             $value = absint($value);
@@ -100,7 +142,7 @@ function kslc_register_settings() {
     ]);
 
     // 内部リンク用キャッシュ期間
-    register_setting( 'kslc_options_group', 'kslc_internal_cache_period', [
+    register_setting( 'kslc_cache_group', 'kslc_internal_cache_period', [
         'type' => 'integer',
         'sanitize_callback' => function($value) {
             $value = absint($value);
@@ -110,66 +152,66 @@ function kslc_register_settings() {
     ]);
 
     // 外部リンク用設定
-    register_setting( 'kslc_options_group', 'kslc_external_color_theme', [
+    register_setting( 'kslc_design_group', 'kslc_external_color_theme', [
         'type' => 'string',
         'sanitize_callback' => function($value) {
             return kslc_sanitize_choice( $value, KSLC_ALLOWED_COLOR_THEMES, 'blue' );
         },
         'default' => 'blue',
     ]);
-    register_setting( 'kslc_options_group', 'kslc_external_show_thumbnail', [
+    register_setting( 'kslc_design_group', 'kslc_external_show_thumbnail', [
         'type' => 'boolean',
         'sanitize_callback' => 'rest_sanitize_boolean',
         'default' => true,
     ]);
-    register_setting( 'kslc_options_group', 'kslc_external_thumbnail_position', [
+    register_setting( 'kslc_design_group', 'kslc_external_thumbnail_position', [
         'type' => 'string',
         'sanitize_callback' => function($value) {
             return kslc_sanitize_choice( $value, KSLC_ALLOWED_THUMBNAIL_POSITIONS, 'right' );
         },
         'default' => 'right',
     ]);
-    register_setting( 'kslc_options_group', 'kslc_external_show_badge', [
+    register_setting( 'kslc_design_group', 'kslc_external_show_badge', [
         'type' => 'boolean',
         'sanitize_callback' => 'rest_sanitize_boolean',
         'default' => true,
     ]);
 
     // 内部リンク用設定
-    register_setting( 'kslc_options_group', 'kslc_internal_color_theme', [
+    register_setting( 'kslc_design_group', 'kslc_internal_color_theme', [
         'type' => 'string',
         'sanitize_callback' => function($value) {
             return kslc_sanitize_choice( $value, KSLC_ALLOWED_COLOR_THEMES, 'gray' );
         },
         'default' => 'gray',
     ]);
-    register_setting( 'kslc_options_group', 'kslc_internal_show_thumbnail', [
+    register_setting( 'kslc_design_group', 'kslc_internal_show_thumbnail', [
         'type' => 'boolean',
         'sanitize_callback' => 'rest_sanitize_boolean',
         'default' => true,
     ]);
-    register_setting( 'kslc_options_group', 'kslc_internal_thumbnail_position', [
+    register_setting( 'kslc_design_group', 'kslc_internal_thumbnail_position', [
         'type' => 'string',
         'sanitize_callback' => function($value) {
             return kslc_sanitize_choice( $value, KSLC_ALLOWED_THUMBNAIL_POSITIONS, 'right' );
         },
         'default' => 'right',
     ]);
-    register_setting( 'kslc_options_group', 'kslc_internal_show_badge', [
+    register_setting( 'kslc_design_group', 'kslc_internal_show_badge', [
         'type' => 'boolean',
         'sanitize_callback' => 'rest_sanitize_boolean',
         'default' => true,
     ]);
     
     // サムネイルサイズ設定
-    register_setting( 'kslc_options_group', 'kslc_thumbnail_width', [
+    register_setting( 'kslc_design_group', 'kslc_thumbnail_width', [
         'type' => 'integer',
         'sanitize_callback' => function($value) {
             return kslc_sanitize_int_range( $value, KSLC_THUMBNAIL_WIDTH_MIN, KSLC_THUMBNAIL_WIDTH_MAX, KSLC_DEFAULT_THUMBNAIL_WIDTH );
         },
         'default' => KSLC_DEFAULT_THUMBNAIL_WIDTH,
     ]);
-    register_setting( 'kslc_options_group', 'kslc_thumbnail_height', [
+    register_setting( 'kslc_design_group', 'kslc_thumbnail_height', [
         'type' => 'integer',
         'sanitize_callback' => function($value) {
             return kslc_sanitize_int_range( $value, KSLC_THUMBNAIL_HEIGHT_MIN, KSLC_THUMBNAIL_HEIGHT_MAX, KSLC_DEFAULT_THUMBNAIL_HEIGHT );
@@ -178,12 +220,12 @@ function kslc_register_settings() {
     ]);
     
     // カスタムカラー設定
-    register_setting( 'kslc_options_group', 'kslc_external_custom_color', [
+    register_setting( 'kslc_design_group', 'kslc_external_custom_color', [
         'type' => 'string',
         'sanitize_callback' => 'sanitize_hex_color',
         'default' => KSLC_DEFAULT_EXTERNAL_COLOR,
     ]);
-    register_setting( 'kslc_options_group', 'kslc_internal_custom_color', [
+    register_setting( 'kslc_design_group', 'kslc_internal_custom_color', [
         'type' => 'string',
         'sanitize_callback' => 'sanitize_hex_color',
         'default' => KSLC_DEFAULT_INTERNAL_COLOR,
@@ -207,6 +249,75 @@ function kslc_sanitize_int_range( $value, $min, $max, $default ) {
         return $default;
     }
     return max( $min, min( $max, (int) $value ) );
+}
+
+/**
+ * ドメイン一覧（改行・カンマ・空白区切り）を正規化して改行区切りで返す
+ * - URL で書かれていればホスト名だけを取り出す
+ * - 小文字化し、先頭の "www." は外す（照合側も同じ規則で比較する）
+ * - ホスト名として妥当なものだけ残す
+ */
+function kslc_sanitize_domain_list( $value ) {
+    $items = preg_split( '/[\s,]+/u', (string) $value );
+    $domains = [];
+    foreach ( $items as $item ) {
+        $host = kslc_normalize_host( $item );
+        if ( '' !== $host && preg_match( '/^(?=.{1,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9-]{2,63}$/', $host ) ) {
+            $domains[ $host ] = true;
+        }
+    }
+    return implode( "\n", array_keys( $domains ) );
+}
+
+/**
+ * ホスト名を照合用に正規化する（URL ならホスト部を取り出し、小文字化し、先頭の www. を外す）
+ */
+function kslc_normalize_host( $value ) {
+    $value = trim( (string) $value );
+    if ( '' === $value ) {
+        return '';
+    }
+    if ( ! preg_match( '#^[a-z][a-z0-9+.\-]*://#i', $value ) ) {
+        $value = 'http://' . ltrim( $value, '/' );
+    }
+    $host = strtolower( (string) parse_url( $value, PHP_URL_HOST ) );
+    return preg_replace( '/^www\./', '', $host );
+}
+
+/**
+ * 転送先への自動追随が有効か（既定 ON）
+ */
+function kslc_follow_redirects_enabled() {
+    return (bool) get_option( 'kslc_follow_redirects', true );
+}
+
+/**
+ * 登録ドメインに該当する URL があれば、自動付与する rel 値（sponsored / nofollow）を返す。該当しなければ空文字
+ * "example.com" は example.com とそのサブドメイン（sub.example.com）に一致する
+ */
+function kslc_get_auto_rel_for_urls( $urls ) {
+    $raw = (string) get_option( 'kslc_auto_rel_domains', '' );
+    if ( '' === trim( $raw ) ) {
+        return '';
+    }
+    $domains = array_filter( array_map( 'trim', explode( "\n", $raw ) ) );
+    if ( empty( $domains ) ) {
+        return '';
+    }
+    $rel_value = kslc_sanitize_choice( get_option( 'kslc_auto_rel_value', 'sponsored' ), KSLC_ALLOWED_AUTO_REL_VALUES, 'sponsored' );
+
+    foreach ( (array) $urls as $url ) {
+        $host = kslc_normalize_host( $url );
+        if ( '' === $host ) {
+            continue;
+        }
+        foreach ( $domains as $domain ) {
+            if ( $host === $domain || substr( $host, - ( strlen( $domain ) + 1 ) ) === '.' . $domain ) {
+                return $rel_value;
+            }
+        }
+    }
+    return '';
 }
 
 /**

@@ -159,11 +159,22 @@ function kslc_is_same_site_url( $url ) {
 
 /**
  * target / rel 属性を組み立てる
- * target="_blank" のときは利用者指定の rel があっても noopener を必ず含める
+ * - target="_blank" のときは利用者指定の rel があっても noopener を必ず含める
+ * - ショートコードに rel が無いときだけ、管理画面で登録したドメインへのリンクに sponsored / nofollow を自動付与する
+ *
+ * @param array $atts        ショートコード属性
+ * @param bool  $is_external 外部リンクか
+ * @param array $urls        rel 自動付与の照合に使う URL（元の URL と転送後の URL）
  */
-function kslc_build_link_attrs( $atts, $is_external ) {
+function kslc_build_link_attrs( $atts, $is_external, $urls = array() ) {
     $target = ! empty( $atts['target'] ) ? $atts['target'] : ( $is_external ? '_blank' : '' );
     $rel    = ! empty( $atts['rel'] ) ? preg_split( '/\s+/', trim( $atts['rel'] ) ) : [];
+    if ( empty( $rel ) && ! empty( $urls ) ) {
+        $auto_rel = kslc_get_auto_rel_for_urls( $urls );
+        if ( '' !== $auto_rel ) {
+            $rel[] = $auto_rel;
+        }
+    }
     if ( '_blank' === $target && ! in_array( 'noopener', $rel, true ) ) {
         $rel[] = 'noopener';
     }
@@ -176,6 +187,99 @@ function kslc_build_link_attrs( $atts, $is_external ) {
         $output .= ' rel="' . esc_attr( implode( ' ', array_unique( $rel ) ) ) . '"';
     }
     return $output;
+}
+
+/**
+ * 投稿に解決できた内部 URL を正規のパーマリンクにそろえる
+ * - 元 URL のパスがパーマリンクのパスと一致する（末尾スラッシュの有無・http/https・www の揺れだけ）ときだけ置き換え、
+ *   元 URL の ?query と #fragment はそのまま付け直す（url_to_postid() は # と ? を捨てて解決するため、ここで戻す）
+ * - パスが一致しない（/page/2/ や /feed/ などの追加パス）ときは元 URL をそのまま返す
+ * - プレーンなパーマリンク（?p=ID 形式）のサイトでは置き換えない
+ *
+ * @param string $url     元の URL（絶対 URL）
+ * @param int    $post_id 解決できた投稿 ID
+ * @return string
+ */
+function kslc_normalize_internal_url( $url, $post_id ) {
+    $permalink = get_permalink( $post_id );
+    if ( ! $permalink ) {
+        return $url;
+    }
+    $url_parts  = wp_parse_url( $url );
+    $perm_parts = wp_parse_url( $permalink );
+    if ( ! is_array( $url_parts ) || ! is_array( $perm_parts ) || isset( $perm_parts['query'] ) || isset( $perm_parts['fragment'] ) ) {
+        return $url;
+    }
+    $url_path  = rtrim( isset( $url_parts['path'] ) ? (string) $url_parts['path'] : '/', '/' );
+    $perm_path = rtrim( isset( $perm_parts['path'] ) ? (string) $perm_parts['path'] : '/', '/' );
+    if ( $url_path !== $perm_path ) {
+        return $url;
+    }
+    $result = $permalink;
+    if ( isset( $url_parts['query'] ) && '' !== $url_parts['query'] ) {
+        $result .= '?' . $url_parts['query'];
+    }
+    if ( isset( $url_parts['fragment'] ) && '' !== $url_parts['fragment'] ) {
+        $result .= '#' . $url_parts['fragment'];
+    }
+    return $result;
+}
+
+/**
+ * カードの href に使う URL を決める（転送先への自動追随）
+ * - 設定 OFF: ショートコードの URL をそのまま使う
+ * - 内部リンク（投稿に解決できた）: get_permalink() の正規 URL（末尾スラッシュや http/https の揺れを正規化。?query と #fragment は保つ）
+ * - 外部リンク: OGP 取得時に記録した恒久的な転送（301 / 308）後の最終 URL（キャッシュに保存されている）。元 URL の #fragment は引き継ぐ
+ *
+ * @param string      $url      ショートコードから得た URL
+ * @param array|false $ogp_data OGP データ（final_url を含むことがある）
+ * @param int         $post_id  内部リンクとして解決できた投稿 ID（無ければ 0）
+ */
+function kslc_resolve_output_url( $url, $ogp_data, $post_id = 0 ) {
+    if ( ! kslc_follow_redirects_enabled() ) {
+        return $url;
+    }
+
+    if ( $post_id > 0 && 'publish' === get_post_status( $post_id ) ) {
+        return kslc_normalize_internal_url( $url, $post_id );
+    }
+
+    if ( is_array( $ogp_data ) && ! empty( $ogp_data['final_url'] ) ) {
+        $final_url = (string) $ogp_data['final_url'];
+        if ( kslc_is_http_url( $final_url ) && filter_var( $final_url, FILTER_VALIDATE_URL ) ) {
+            return kslc_inherit_fragment( $final_url, $url );
+        }
+    }
+
+    return $url;
+}
+
+/**
+ * 転送後の URL に #fragment が無ければ、元の URL の #fragment を引き継ぐ
+ * （RFC 9110 §10.2.2: Location に fragment が無い転送は、元の参照の fragment を引き継いで処理する。ブラウザと同じ扱い）
+ *
+ * @param string $final_url    転送後の URL
+ * @param string $original_url ショートコードに書かれた元の URL
+ * @return string
+ */
+function kslc_inherit_fragment( $final_url, $original_url ) {
+    $fragment = wp_parse_url( $original_url, PHP_URL_FRAGMENT );
+    if ( ! is_string( $fragment ) || '' === $fragment ) {
+        return $final_url;
+    }
+    $final_fragment = wp_parse_url( $final_url, PHP_URL_FRAGMENT );
+    if ( is_string( $final_fragment ) && '' !== $final_fragment ) {
+        return $final_url;
+    }
+    return $final_url . '#' . $fragment;
+}
+
+/**
+ * サムネイル <img> に付ける属性: 遅延読み込みと非同期デコード、設定のサムネイルサイズに合わせた width / height
+ * （CSS 側は .kslc-thumbnail を同じ幅・高さの枠にし、img は枠いっぱいに object-fit: cover で表示するため矛盾しない）
+ */
+function kslc_thumbnail_img_attrs( $width, $height ) {
+    return sprintf( ' width="%d" height="%d" loading="lazy" decoding="async"', (int) $width, (int) $height );
 }
 
 add_action('wp_ajax_kslc_track_click', 'kslc_handle_click_tracking');
@@ -199,13 +303,27 @@ function kslc_link_card_shortcode( $atts ) {
     if ( ! empty( $atts['post_id'] ) && is_numeric( $atts['post_id'] ) ) {
         $post_id = intval( $atts['post_id'] );
         $post = get_post( $post_id );
-        
+
         if ( ! $post ) {
+            // 指定された投稿が存在しない（削除済みなど）→ リンク切れとして記録し、何も出力しない
+            // 表示のたびに option を書かないよう、URL ごとに KSLC_FAILURE_CACHE_SECONDS の間は記録を 1 回に抑える
+            $missing_key = 'kslc_missing_post_' . $post_id;
+            if ( false === get_transient( $missing_key ) ) {
+                kslc_record_link_failure( kslc_post_reference_url( $post_id ), 404, '投稿が見つかりません（削除または非公開）', kslc_current_page_id() );
+                set_transient( $missing_key, 1, KSLC_FAILURE_CACHE_SECONDS );
+            }
             return '';
         }
-        
+
+        // 表示時に「投稿が見つからない」と記録した投稿が見つかるようになった（復元・再作成）→ 記録を外す
+        $missing_key = 'kslc_missing_post_' . $post_id;
+        if ( 'publish' === get_post_status( $post_id ) && false !== get_transient( $missing_key ) ) {
+            kslc_record_link_ok( kslc_post_reference_url( $post_id ) );
+            delete_transient( $missing_key );
+        }
+
         $url = get_permalink( $post_id );
-        
+
         // カスタムタイトルが指定されていない場合は投稿タイトルを使用
         if ( empty( $atts['title'] ) ) {
             $atts['title'] = get_the_title( $post_id );
@@ -234,9 +352,13 @@ function kslc_link_card_shortcode( $atts ) {
 
     $ogp_data = kslc_get_ogp_data( $url, isset( $post_id ) ? $post_id : 0 );
 
+    // 出力に使う URL: 転送先への自動追随が ON なら、内部リンクは投稿の正規パーマリンク、外部リンクはリダイレクト後の最終 URL
+    // （ショートコードに書かれた URL 自体は変更しない）
+    $href_url = kslc_resolve_output_url( $url, $ogp_data, isset( $post_id ) ? $post_id : 0 );
+
     if ( ! $ogp_data ) {
         // スクレイピング失敗時は簡易的なデコレーションパネルを出力
-        return kslc_render_fallback_card( $url, $atts );
+        return kslc_render_fallback_card( $href_url, $atts );
     }
 
     // カスタムタイトルが指定されている場合はそれを使用
@@ -245,8 +367,9 @@ function kslc_link_card_shortcode( $atts ) {
     $image = ! empty( $ogp_data['image'] ) ? esc_url( $ogp_data['image'] ) : '';
     $site_name = ! empty( $ogp_data['site_name'] ) ? esc_html( $ogp_data['site_name'] ) : '';
 
+    // 外部／内部の判定は実際にリンクする URL（転送後）で行う
     $site_host = parse_url( home_url(), PHP_URL_HOST );
-    $link_host = parse_url( $url, PHP_URL_HOST );
+    $link_host = parse_url( $href_url, PHP_URL_HOST );
 
     // parse_url()が失敗した場合は外部リンクとして扱う
     $is_external = ( $site_host === false || $link_host === false || $site_host !== $link_host );
@@ -313,7 +436,7 @@ function kslc_link_card_shortcode( $atts ) {
     }
 
     // 引用タグで囲んで引用であることを明示（SEO対策）
-    $output .= '<blockquote cite="' . esc_attr($url) . '" class="kslc-blockquote">';
+    $output .= '<blockquote cite="' . esc_attr($href_url) . '" class="kslc-blockquote">';
     $output .= '<div class="' . $card_class . '" style="' . esc_attr($inline_style) . '">';
 
     // サムネイルがない場合のみカード全体にバッジを配置
@@ -325,10 +448,10 @@ function kslc_link_card_shortcode( $atts ) {
         }
     }
 
-    // target属性とrel属性の処理
-    $target_attr = kslc_build_link_attrs( $atts, $is_external );
+    // target属性とrel属性の処理（登録ドメインへのリンクには rel を自動付与。ショートコードの rel 指定が優先）
+    $target_attr = kslc_build_link_attrs( $atts, $is_external, array( $url, $href_url ) );
 
-    $output .= '<a href="' . esc_url($url) . '"' . $target_attr . ' class="kslc-link">';
+    $output .= '<a href="' . esc_url($href_url) . '"' . $target_attr . ' class="kslc-link">';
     $output .= '<div class="kslc-content">';
     $output .= '<div class="kslc-title">' . $title . '</div>';
     $output .= '<div class="kslc-description">' . $description . '</div>';
@@ -346,7 +469,7 @@ function kslc_link_card_shortcode( $atts ) {
             }
         }
 
-        $output .= '<img src="' . $image . '" alt="' . $title . '">';
+        $output .= '<img src="' . $image . '" alt="' . $title . '"' . kslc_thumbnail_img_attrs( $thumbnail_width, $thumbnail_height ) . '>';
         $output .= '</div>';
     }
     $output .= '</a>';
@@ -432,8 +555,8 @@ function kslc_render_fallback_card( $url, $atts = [] ) {
         );
     }
 
-    // target属性とrel属性の処理
-    $target_attr = kslc_build_link_attrs( $atts, $is_external );
+    // target属性とrel属性の処理（登録ドメインへのリンクには rel を自動付与。ショートコードの rel 指定が優先）
+    $target_attr = kslc_build_link_attrs( $atts, $is_external, array( $url ) );
 
     // HTML出力を構築
     $output = '<blockquote cite="' . esc_attr( $url ) . '" class="kslc-blockquote">';
@@ -463,7 +586,7 @@ function kslc_render_fallback_card( $url, $atts = [] ) {
             $output .= '<span class="' . $badge_class . '">' . $badge_text . '</span>';
         }
 
-        $output .= '<img src="' . esc_url( $favicon_url ) . '" alt="' . esc_attr( $domain ) . '">';
+        $output .= '<img src="' . esc_url( $favicon_url ) . '" alt="' . esc_attr( $domain ) . '"' . kslc_thumbnail_img_attrs( $thumbnail_width, $thumbnail_height ) . '>';
         $output .= '</div>';
     }
 

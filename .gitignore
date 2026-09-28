@@ -32,6 +32,7 @@ composer.lock
 
 # AI / development tool settings (never publish)
 CLAUDE.md
+.claude/
 .codex
 .cursor/
 .aider*

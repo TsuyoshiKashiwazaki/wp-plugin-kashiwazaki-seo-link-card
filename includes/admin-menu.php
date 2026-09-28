@@ -14,18 +14,33 @@ function kslc_add_admin_menu() {
         'dashicons-admin-links',
         81
     );
-
-    // 統計ページを追加
-    add_submenu_page(
-        'kashiwazaki-seo-link-card',
-        'リンク統計',
-        'リンク統計',
-        'manage_options',
-        'kslc-analytics',
-        'kslc_analytics_page_html'
-    );
+    // サブメニューは作らない。リンク統計・リンク切れ一覧も含め、すべて同じページのタブで切り替える
 }
 add_action( 'admin_menu', 'kslc_add_admin_menu' );
+
+/**
+ * 管理画面のタブ定義（slug => ラベル）。すべて admin.php?page=kashiwazaki-seo-link-card&tab=... で切り替える
+ */
+function kslc_admin_tabs() {
+    return [
+        'design' => 'デザイン',
+        'cache'  => 'キャッシュ',
+        'links'  => 'リンク先の扱い',
+        'broken' => 'リンク切れ一覧',
+        'stats'  => 'リンク統計',
+        'usage'  => '使い方',
+    ];
+}
+
+function kslc_admin_tab_url( $tab ) {
+    return add_query_arg( [ 'page' => 'kashiwazaki-seo-link-card', 'tab' => $tab ], admin_url( 'admin.php' ) );
+}
+
+function kslc_current_admin_tab() {
+    $tabs = kslc_admin_tabs();
+    $tab  = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'design';
+    return isset( $tabs[ $tab ] ) ? $tab : 'design';
+}
 
 function kslc_add_settings_link( $links ) {
     $settings_link = '<a href="admin.php?page=kashiwazaki-seo-link-card">' . __( 'Settings' ) . '</a>';
@@ -39,10 +54,21 @@ if ( defined( 'KSLC_PLUGIN_FILE' ) ) {
 }
 
 
+/**
+ * 管理画面本体: 見出し + タブナビ + 選択中タブの内容
+ * 設定フォームはタブごとに options.php へ送る。options.php は送られたグループの全オプションを更新する
+ * （POST に無いものは null → 既定値）ため、設定グループもタブごとに分けている（kslc_design_group / kslc_cache_group / kslc_links_group）
+ */
 function kslc_options_page_html() {
-    // キャッシュクリア処理
+    if ( ! current_user_can( 'manage_options' ) ) {
+        return;
+    }
+
+    $tabs        = kslc_admin_tabs();
+    $current_tab = kslc_current_admin_tab();
+
+    // キャッシュクリア処理（「キャッシュ」タブのフォームから POST される）
     if ( isset( $_POST['kslc_clear_cache'] ) &&
-         current_user_can( 'manage_options' ) &&
          check_admin_referer( 'kslc_clear_cache_action', 'kslc_clear_cache_nonce' ) ) {
         $deleted_count = kslc_clear_cache();
 
@@ -56,11 +82,47 @@ function kslc_options_page_html() {
     ?>
     <div class="wrap">
         <h1><?php echo esc_html( get_admin_page_title() ); ?></h1>
-        <?php settings_errors( 'kslc_messages' ); ?>
+        <nav class="nav-tab-wrapper wp-clearfix" aria-label="<?php esc_attr_e( 'Secondary menu' ); ?>">
+            <?php foreach ( $tabs as $slug => $label ) : ?>
+                <a href="<?php echo esc_url( kslc_admin_tab_url( $slug ) ); ?>" class="nav-tab<?php echo $slug === $current_tab ? ' nav-tab-active' : ''; ?>"<?php echo $slug === $current_tab ? ' aria-current="page"' : ''; ?>><?php echo esc_html( $label ); ?></a>
+            <?php endforeach; ?>
+        </nav>
+        <?php
+        // options.php 経由の保存結果（settings-updated）と、このページ独自のメッセージをまとめて表示
+        settings_errors();
+
+        switch ( $current_tab ) {
+            case 'cache':
+                kslc_render_tab_cache();
+                break;
+            case 'links':
+                kslc_render_tab_links();
+                break;
+            case 'broken':
+                kslc_render_tab_broken_links();
+                break;
+            case 'stats':
+                kslc_render_tab_analytics();
+                break;
+            case 'usage':
+                kslc_render_tab_usage();
+                break;
+            default:
+                kslc_render_tab_design();
+                break;
+        }
+        ?>
+    </div>
+    <?php
+}
+
+/**
+ * 「デザイン」タブ: 外部／内部リンクのデザインとサムネイルサイズ
+ */
+function kslc_render_tab_design() {
+    ?>
         <form action="options.php" method="post">
-            <?php
-            settings_fields( 'kslc_options_group' );
-            ?>
+            <?php settings_fields( 'kslc_design_group' ); ?>
             <h2>デザイン設定</h2>
 
             <h3>外部リンク設定</h3>
@@ -209,6 +271,18 @@ function kslc_options_page_html() {
                 </tr>
             </table>
 
+            <?php submit_button( '設定を保存' ); ?>
+        </form>
+    <?php
+}
+
+/**
+ * 「キャッシュ」タブ: キャッシュ期間とキャッシュのクリア
+ */
+function kslc_render_tab_cache() {
+    ?>
+        <form action="options.php" method="post">
+            <?php settings_fields( 'kslc_cache_group' ); ?>
             <h2>キャッシュ設定</h2>
             <table class="form-table">
                 <tr valign="top">
@@ -241,13 +315,100 @@ function kslc_options_page_html() {
 
         <h2>キャッシュのクリア</h2>
         <p>カードの表示が更新されない場合や、問題が発生した場合は、以下のボタンをクリックして全てのキャッシュを削除してください。</p>
-        <form action="" method="post">
+        <form action="<?php echo esc_url( kslc_admin_tab_url( 'cache' ) ); ?>" method="post">
             <?php wp_nonce_field( 'kslc_clear_cache_action', 'kslc_clear_cache_nonce' ); ?>
             <?php submit_button( 'キャッシュをすべてクリア', 'delete', 'kslc_clear_cache', false ); ?>
         </form>
+    <?php
+}
 
-        <hr>
+/**
+ * 「リンク先の扱い」タブ: 転送先への自動追随・rel 自動付与・リンク切れの定期チェック
+ */
+function kslc_render_tab_links() {
+    ?>
+        <form action="options.php" method="post">
+            <?php settings_fields( 'kslc_links_group' ); ?>
+            <h2>リンク先の扱い</h2>
+            <table class="form-table">
+                <tr valign="top">
+                    <th scope="row">転送先への自動追随</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="kslc_follow_redirects" value="1" <?php checked( get_option( 'kslc_follow_redirects', true ) ); ?> />
+                            リンク先が恒久的に移転（301 / 308）していたら、リダイレクト後の最終 URL をカードのリンク先に使う
+                        </label>
+                        <p class="description">ショートコードに書いた URL は変更されず、出力時にだけ差し替えます。302 / 307 などの一時的な転送（アフィリエイトの計測 URL・短縮 URL・同意画面など）には追随せず、元の URL のままにします。転送後の URL にも、ショートコードの URL の <code>#見出し</code> を引き継ぎます。内部リンクは投稿の正規のパーマリンク（末尾スラッシュや http/https の揺れを正規化したもの）を使い、<code>#見出し</code> や <code>?パラメータ</code> はそのまま保ちます。追随は最大 <?php echo (int) KSLC_MAX_REDIRECTS; ?> 回で、ループはそこで打ち切られます。</p>
+                    </td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row"><label for="kslc_auto_rel_domains">rel を自動付与するドメイン</label></th>
+                    <td>
+                        <textarea id="kslc_auto_rel_domains" name="kslc_auto_rel_domains" rows="4" class="large-text code" placeholder="example.com&#10;shop.example.net"><?php echo esc_textarea( get_option( 'kslc_auto_rel_domains', '' ) ); ?></textarea>
+                        <p class="description">1 行に 1 ドメイン（例: <code>example.com</code>）。サブドメイン（<code>sub.example.com</code>）にも一致します。登録ドメインへのカードには下の rel 値を自動で付けます。ショートコードに <code>rel</code> が指定されていればそちらを優先します。</p>
+                    </td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row"><label for="kslc_auto_rel_value">自動付与する rel の値</label></th>
+                    <td>
+                        <select id="kslc_auto_rel_value" name="kslc_auto_rel_value">
+                            <?php
+                            $rel_choices = [ 'sponsored' => 'sponsored（広告・有料リンク）', 'nofollow' => 'nofollow' ];
+                            $current_rel = get_option( 'kslc_auto_rel_value', 'sponsored' );
+                            foreach ( $rel_choices as $value => $label ) {
+                                echo '<option value="' . esc_attr( $value ) . '"' . selected( $current_rel, $value, false ) . '>' . esc_html( $label ) . '</option>';
+                            }
+                            ?>
+                        </select>
+                        <p class="description">Google の推奨: 広告や有料掲載のリンクには <code>sponsored</code>、それ以外で関連付けたくないリンクには <code>nofollow</code>。</p>
+                    </td>
+                </tr>
+            </table>
 
+            <h2>リンク切れの検知</h2>
+            <table class="form-table">
+                <tr valign="top">
+                    <th scope="row">定期チェック</th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="kslc_link_check_enabled" value="1" <?php checked( get_option( 'kslc_link_check_enabled', true ) ); ?> />
+                            WP-Cron でリンクカードのリンク先を定期的に確認する
+                        </label>
+                        <p class="description">公開済み投稿にあるリンクカードの URL を集めて確認し、404 / 410 / サーバーエラー / 接続失敗を「リンク切れ一覧」に載せます。カード表示時に検知した分も同じ一覧に載ります。</p>
+                    </td>
+                </tr>
+                <tr valign="top">
+                    <th scope="row"><label for="kslc_link_check_interval">チェック間隔 (時間)</label></th>
+                    <td>
+                        <input type="number" id="kslc_link_check_interval" name="kslc_link_check_interval" value="<?php echo esc_attr( get_option( 'kslc_link_check_interval', KSLC_DEFAULT_LINK_CHECK_INTERVAL ) ); ?>" min="<?php echo (int) KSLC_LINK_CHECK_INTERVAL_MIN; ?>" max="<?php echo (int) KSLC_LINK_CHECK_INTERVAL_MAX; ?>" step="1" required />
+                        <p class="description">
+                            既定は 24 時間（1 日 1 回）。
+                            <?php
+                            $next_check = wp_next_scheduled( KSLC_LINK_CHECK_HOOK );
+                            if ( $next_check ) {
+                                echo '次回の実行予定: ' . esc_html( wp_date( 'Y-m-d H:i', $next_check ) );
+                            } else {
+                                echo '現在、定期チェックは登録されていません。';
+                            }
+                            if ( defined( 'DISABLE_WP_CRON' ) && DISABLE_WP_CRON ) {
+                                echo '<br>※ DISABLE_WP_CRON が有効なため、サーバーの cron から wp-cron.php を実行する必要があります。';
+                            }
+                            ?>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button( '設定を保存' ); ?>
+        </form>
+    <?php
+}
+
+/**
+ * 「使い方」タブ
+ */
+function kslc_render_tab_usage() {
+    ?>
         <h2>このプラグインについて</h2>
         <p>このプラグインは、投稿や固定ページにURLを記述するだけで、そのページの情報を自動で取得し、見栄えの良いカード形式で表示するためのものです。</p>
         <p>外部リンクと内部リンクを自動で判別し、それぞれ異なるデザイン設定を適用できます。</p>
@@ -269,7 +430,6 @@ function kslc_options_page_html() {
 
         <h2>サポート</h2>
         <p>ご不明な点や不具合報告は、<a href="https://tsuyoshikashiwazaki.jp/contact/" target="_blank" rel="noopener">作者のサイト</a>までお気軽にお問い合わせください。</p>
-    </div>
     <?php
 }
 
@@ -486,7 +646,10 @@ function kslc_get_page_link_stats($page_url, $period = 'all') {
 
 
 // 統計ページの表示
-function kslc_analytics_page_html() {
+/**
+ * 「リンク統計」タブ
+ */
+function kslc_render_tab_analytics() {
     global $wpdb;
     $table_name = $wpdb->prefix . 'kslc_analytics';
 
@@ -504,11 +667,10 @@ function kslc_analytics_page_html() {
     $selected_page = isset($_GET['selected_page']) ? esc_url_raw($_GET['selected_page']) : '';
 
     ?>
-    <div class="wrap">
-        <h1>リンク統計</h1>
+        <h2>リンク統計</h2>
 
         <!-- デバッグ情報 -->
-        <div class="notice notice-info" style="padding: 10px; margin: 20px 0;">
+        <div class="notice notice-info inline" style="padding: 10px; margin: 20px 0;">
             <h4>システム状態</h4>
             <p><strong>データベーステーブル:</strong> <?php echo $table_exists ? '✅ 存在' : '❌ 未作成'; ?></p>
             <p><strong>総レコード数:</strong> <?php echo number_format($total_records); ?> 件</p>
@@ -543,7 +705,8 @@ function kslc_analytics_page_html() {
 
         <!-- 期間とページ選択 -->
         <form method="get" style="margin: 20px 0;">
-            <input type="hidden" name="page" value="kslc-analytics">
+            <input type="hidden" name="page" value="kashiwazaki-seo-link-card">
+            <input type="hidden" name="tab" value="stats">
 
             <label for="period">表示期間:</label>
             <select name="period" id="period" onchange="this.form.submit()">
@@ -624,7 +787,7 @@ function kslc_analytics_page_html() {
             </p>
             <p><strong>総クリック数:</strong> <?php echo number_format($page_stats['total_clicks']); ?> 回</p>
 
-            <a href="<?php echo add_query_arg(['page' => 'kslc-analytics', 'period' => $selected_period], admin_url('admin.php')); ?>" class="button" style="margin: 10px 0;">← ページ一覧に戻る</a>
+            <a href="<?php echo esc_url( add_query_arg( [ 'page' => 'kashiwazaki-seo-link-card', 'tab' => 'stats', 'period' => $selected_period ], admin_url( 'admin.php' ) ) ); ?>" class="button" style="margin: 10px 0;">← ページ一覧に戻る</a>
 
             <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
                 <thead>
@@ -670,7 +833,7 @@ function kslc_analytics_page_html() {
 
         <?php else: ?>
             <!-- データが存在しない場合 -->
-            <div class="notice notice-warning" style="padding: 15px; margin: 20px 0;">
+            <div class="notice notice-warning inline" style="padding: 15px; margin: 20px 0;">
                 <h3>統計データがありません</h3>
                 <p>まだリンクカードがクリックされていないか、データベーステーブルが作成されていません。</p>
                 <ol>
@@ -680,6 +843,139 @@ function kslc_analytics_page_html() {
                 </ol>
             </div>
         <?php endif; ?>
-    </div>
+    <?php
+}
+
+/**
+ * 「リンク切れ一覧」タブ
+ */
+function kslc_render_tab_broken_links() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        return;
+    }
+
+    // 今すぐチェック（時間予算内で確認し、残りは WP-Cron の単発イベントで続ける）
+    if ( isset( $_POST['kslc_run_link_check'] ) && check_admin_referer( 'kslc_link_check_action', 'kslc_link_check_nonce' ) ) {
+        $result = kslc_run_link_check( true );
+        if ( 'locked' === $result['skipped'] ) {
+            add_settings_error( 'kslc_link_messages', 'kslc_link_check_locked', '別のチェックが実行中です。しばらくしてから再度お試しください。', 'warning' );
+        } else {
+            $message = sprintf( '%d 件中 %d 件を確認しました。リンク切れ: %d 件。', $result['total'], $result['checked'], $result['broken'] );
+            if ( $result['remaining'] > 0 ) {
+                $message .= sprintf( ' 残り %d 件は 1 分後からバックグラウンドで続けて確認します。', $result['remaining'] );
+            }
+            add_settings_error( 'kslc_link_messages', 'kslc_link_check_done', $message, 'updated' );
+        }
+    }
+
+    // 一覧のクリア
+    if ( isset( $_POST['kslc_clear_broken_links'] ) && check_admin_referer( 'kslc_clear_broken_links_action', 'kslc_clear_broken_links_nonce' ) ) {
+        delete_option( KSLC_BROKEN_LINKS_OPTION );
+        add_settings_error( 'kslc_link_messages', 'kslc_broken_links_cleared', 'リンク切れ一覧をクリアしました。次回のチェックまたはカード表示時に再検知されます。', 'updated' );
+    }
+
+    $links = kslc_get_broken_links();
+    uasort( $links, function ( $a, $b ) {
+        return strcmp( (string) $b['last_checked'], (string) $a['last_checked'] );
+    } );
+
+    $last_run = get_option( KSLC_LINK_CHECK_LAST_RUN_OPTION, false );
+    $next_run = wp_next_scheduled( KSLC_LINK_CHECK_HOOK );
+    $state    = get_option( KSLC_LINK_CHECK_STATE_OPTION, false );
+    ?>
+        <h2>リンク切れ一覧</h2>
+        <?php settings_errors( 'kslc_link_messages' ); ?>
+
+        <?php if ( kslc_is_link_doctor_active() ) : ?>
+            <div class="notice notice-info inline">
+                <p><strong>Kashiwazaki SEO Link Doctor が有効です。</strong> ページ内のすべてのリンクを対象にした検査は Link Doctor で行えます。この一覧はリンクカードのリンク先だけを対象にした自動検知（カード表示時と定期チェック）です。</p>
+            </div>
+        <?php endif; ?>
+
+        <div class="notice notice-info inline" style="padding: 10px; margin: 20px 0;">
+            <p><strong>定期チェック:</strong>
+                <?php echo get_option( 'kslc_link_check_enabled', true ) ? '有効（' . (int) kslc_link_check_interval_hours() . ' 時間ごと）' : '無効'; ?>
+                <?php if ( $next_run ) : ?>
+                    ／ 次回の実行予定: <?php echo esc_html( wp_date( 'Y-m-d H:i', $next_run ) ); ?>
+                <?php endif; ?>
+            </p>
+            <p><strong>前回の完了:</strong>
+                <?php if ( is_array( $last_run ) && ! empty( $last_run['time'] ) ) : ?>
+                    <?php echo esc_html( wp_date( 'Y-m-d H:i', (int) $last_run['time'] ) ); ?>（<?php echo (int) $last_run['total']; ?> 件を確認、リンク切れ <?php echo (int) $last_run['broken']; ?> 件<?php if ( ! empty( $last_run['pruned'] ) ) : ?>、本文に無くなったカードの記録 <?php echo (int) $last_run['pruned']; ?> 件を一覧から外しました<?php endif; ?>）
+                <?php else : ?>
+                    まだ実行されていません
+                <?php endif; ?>
+                <?php if ( is_array( $state ) && ! empty( $state['queue'] ) ) : ?>
+                    ／ 実行中: <?php echo (int) $state['cursor']; ?> / <?php echo count( $state['queue'] ); ?> 件
+                <?php endif; ?>
+            </p>
+            <p>対象: 公開済み投稿の本文にあるリンクカード（<code>[linkcard]</code> / <code>[nlink]</code> / <code>[kashiwazaki_seo_link_card]</code>）のリンク先。記録するのは 404 / 410 / 5xx / 接続失敗です（401 / 403 / 429 はボット対策で返ることが多いため記録しません）。<code>post_id</code> 指定のカードは <code>?p=ID</code> 形式で表示します。復旧したリンクと本文から消したカードの記録は、全件のチェックが完了したときに一覧から外れます。</p>
+        </div>
+
+        <form method="post" style="display: inline-block; margin-right: 10px;">
+            <?php wp_nonce_field( 'kslc_link_check_action', 'kslc_link_check_nonce' ); ?>
+            <?php submit_button( '今すぐチェック', 'primary', 'kslc_run_link_check', false ); ?>
+        </form>
+        <form method="post" style="display: inline-block;" onsubmit="return confirm('リンク切れ一覧をクリアします。よろしいですか？');">
+            <?php wp_nonce_field( 'kslc_clear_broken_links_action', 'kslc_clear_broken_links_nonce' ); ?>
+            <?php submit_button( '一覧をクリア', 'delete', 'kslc_clear_broken_links', false ); ?>
+        </form>
+
+        <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
+            <thead>
+                <tr>
+                    <th style="width: 34%;">リンク先 URL</th>
+                    <th style="width: 30%;">掲載ページ</th>
+                    <th style="width: 18%;">ステータス</th>
+                    <th style="width: 18%;">最終確認日時</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ( empty( $links ) ) : ?>
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 20px;">リンク切れは記録されていません。</td>
+                    </tr>
+                <?php else : ?>
+                    <?php foreach ( $links as $entry ) : ?>
+                        <tr>
+                            <td style="word-break: break-all;">
+                                <a href="<?php echo esc_url( $entry['url'] ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $entry['url'] ); ?></a>
+                            </td>
+                            <td>
+                                <?php if ( empty( $entry['pages'] ) ) : ?>
+                                    <span style="color: #666;">不明（カード表示時に検知）</span>
+                                <?php else : ?>
+                                    <?php foreach ( $entry['pages'] as $page_id ) : ?>
+                                        <?php
+                                        $page_id   = (int) $page_id;
+                                        $page_link = get_permalink( $page_id );
+                                        $page_name = get_the_title( $page_id );
+                                        ?>
+                                        <div>
+                                            <?php if ( $page_link ) : ?>
+                                                <a href="<?php echo esc_url( $page_link ); ?>" target="_blank" rel="noopener"><?php echo esc_html( '' !== $page_name ? $page_name : '(ID ' . $page_id . ')' ); ?></a>
+                                                <a href="<?php echo esc_url( get_edit_post_link( $page_id ) ); ?>" style="margin-left: 4px;">[編集]</a>
+                                            <?php else : ?>
+                                                <span style="color: #666;">(ID <?php echo $page_id; ?>)</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <strong><?php echo esc_html( kslc_link_status_label( $entry['status'], $entry['error'] ) ); ?></strong>
+                                <?php if ( (int) $entry['count'] > 1 ) : ?>
+                                    <br><small style="color: #666;"><?php echo (int) $entry['count']; ?> 回検知</small>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php echo esc_html( $entry['last_checked'] ); ?>
+                                <br><small style="color: #666;">初回: <?php echo esc_html( $entry['first_seen'] ); ?></small>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
     <?php
 }

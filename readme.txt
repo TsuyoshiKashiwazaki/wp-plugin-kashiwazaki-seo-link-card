@@ -4,7 +4,7 @@ Donate link: https://tsuyoshikashiwazaki.jp/
 Tags: link, card, seo, shortcode, ogp
 Requires at least: 5.0
 Tested up to: 6.5
-Stable tag: 1.0.9
+Stable tag: 1.0.10
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -33,6 +33,14 @@ Yes, it caches the fetched OGP data for 24 hours using WordPress transients to i
 1. Example of a link card.
 
 == Changelog ==
+
+= 1.0.10 =
+* 追加: 転送先への自動追随（301 / 308 で恒久的に移転したリンク先はリダイレクト後の最終 URL を href に使用。302 / 307 の一時的な転送には追随しない。転送後の URL にも #見出し を引き継ぐ。内部リンクは正規パーマリンクにそろえ、#見出し と ?パラメータ は保つ。管理画面で ON/OFF、既定 ON）
+* 追加: サムネイル画像に loading="lazy"・decoding="async"・width / height 属性を付与
+* 追加: リンク切れの検知（OGP 取得時の記録 + WP-Cron の定期チェック）と管理画面「リンク切れ一覧」。post_id 指定は ?p=ID 形式で記録し、復旧したリンクと本文から消したカードの記録は全件チェックの完了時に一覧から外す
+* 追加: 登録ドメインへのカードに rel="sponsored" / "nofollow" を自動付与（ショートコードの rel 指定が優先）
+* 変更: 取得に失敗した URL は 1 時間再取得しない
+* 変更: 管理画面をタブ切り替えに再構成（リンク統計のサブメニューを廃止し、同じページのタブへ）
 
 = 1.0.9 =
 * 修正: 相対パスの画像URLを RFC 3986 準拠で絶対URLに変換するように修正（末尾が / のURLや短いディレクトリ名で誤ったURLになり、サムネイルが404になっていた）

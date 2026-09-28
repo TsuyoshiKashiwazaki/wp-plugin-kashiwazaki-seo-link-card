@@ -11,7 +11,7 @@
 <button class="hamburger-btn" aria-label="Menu" aria-expanded="false">&#9776;</button>
 
 <nav class="sidebar">
-<div class="sidebar-header"><h2 style="color:#fff;">Link Card</h2><span class="version">v1.0.9</span><img src="images/main-visual.png" alt="" style="width:100%;border-radius:4px;margin-top:8px;"></div>
+<div class="sidebar-header"><h2 style="color:#fff;">Link Card</h2><span class="version">v1.0.10</span><img src="images/main-visual.png" alt="" style="width:100%;border-radius:4px;margin-top:8px;"></div>
 <ul><li><a href="index.html">概要</a></li><li><a href="setup.html">インストール・初期設定</a></li><li><a href="link-card-usage.html">リンクカードの使い方</a></li><li><a href="troubleshooting.html">トラブルシューティング</a></li></ul>
 </nav>
 
@@ -26,8 +26,8 @@
 <p>リンクカードは、URLからOGP（Open Graph Protocol）情報を自動取得し、タイトル・説明文・サムネイル画像を含むリッチなカード形式で表示します。</p>
 
 <figure class="screenshot">
-    <img src="images/screenshots/02-linkcard-detail.png" alt="リンクカード設定" class="lightbox-trigger">
-    <figcaption>リンクカードの詳細設定</figcaption>
+    <img src="images/screenshots/01-settings-page.png" alt="設定画面（デザインタブ）" class="lightbox-trigger">
+    <figcaption>設定画面。タブでデザイン／キャッシュ／リンク先の扱い／リンク切れ一覧／リンク統計／使い方を切り替えます</figcaption>
 </figure>
 
 <h3>フロントエンド表示例</h3>
@@ -78,6 +78,60 @@
 </tbody>
 </table>
 
+<h2 id="redirect-follow">転送先への自動追随</h2>
+
+<p>リンク先が恒久的に移転（HTTP 301 / 308）している場合、OGP 取得時に得たリダイレクト後の URL をカードのリンク先（<code>href</code> と <code>cite</code>）に使います。ショートコードに書いた URL 自体は変更されず、出力時にだけ差し替えます。「リンク先の扱い」タブで OFF にできます（既定 ON）。</p>
+
+<figure class="screenshot">
+    <img src="images/screenshots/04-links-tab.png" alt="リンク先の扱いタブ" class="lightbox-trigger">
+    <figcaption>「リンク先の扱い」タブ。転送先への自動追随、rel の自動付与、リンク切れの定期チェックを設定します</figcaption>
+</figure>
+
+<table>
+<thead>
+<tr><th style="width:35%;">転送の種類</th><th>動作</th></tr>
+</thead>
+<tbody>
+<tr><td>301 / 308（恒久的な移転）</td><td>リダイレクト後の URL にリンクします。転送後の URL に <code>#見出し</code> が無ければ、ショートコードの URL の <code>#見出し</code> を引き継ぎます</td></tr>
+<tr><td>302 / 307 など（一時的な転送）</td><td>追随せず、元の URL のままにします。アフィリエイトの計測 URL・短縮 URL・同意画面を経由するリンクを壊さないためです</td></tr>
+<tr><td>内部リンク</td><td>投稿の正規のパーマリンクにそろえます（末尾スラッシュや http/https の揺れを正規化）。<code>#見出し</code> と <code>?パラメータ</code> は保ち、<code>/page/2/</code> のようにパーマリンクとパスが異なる URL は変更しません</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-note">
+<p class="callout-title">メモ</p>
+<p>追随は最大 5 回です。転送のループや回数超過は WordPress の HTTP API が打ち切り、簡易カードで表示されます。</p>
+</div>
+
+<h2 id="broken-links">リンク切れの検知と一覧</h2>
+
+<p>リンク先が 404 / 410 / サーバーエラー（5xx）/ 接続失敗を返したときに記録し、管理画面の「リンク切れ一覧」タブで確認できます。<code>post_id</code> 指定の投稿が削除されていた場合も記録します（一覧には <code>?p=ID</code> 形式で表示されます）。</p>
+
+<figure class="screenshot">
+    <img src="images/screenshots/05-broken-links-tab.png" alt="リンク切れ一覧タブ" class="lightbox-trigger">
+    <figcaption>「リンク切れ一覧」タブ。リンク先 URL・掲載ページ・ステータス・最終確認日時と、「今すぐチェック」「一覧をクリア」</figcaption>
+</figure>
+
+<table>
+<thead>
+<tr><th style="width:35%;">検知のタイミング</th><th>説明</th></tr>
+</thead>
+<tbody>
+<tr><td>カードの表示時</td><td>OGP 情報の取得に失敗したときに記録します。失敗した URL は 1 時間は再取得しません</td></tr>
+<tr><td>定期チェック（WP-Cron）</td><td>公開済み投稿の本文にあるリンクカードのリンク先を確認します。既定は 24 時間ごと（1〜720 時間で変更可）。1 回の実行は 20 秒を上限とし、残りは 1 分後に続きから確認します</td></tr>
+<tr><td>今すぐチェック</td><td>「リンク切れ一覧」タブのボタンで、定期チェックと同じ確認をその場で始めます</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-note">
+<p class="callout-title">メモ</p>
+<p>401 / 403 / 429 はボット対策で返ることが多いため記録しません。復旧したリンクは次の確認で一覧から外れ、本文から消したカードの記録は定期チェックが全件を確認し終えたときに一覧から外れます（対象は公開済み投稿の本文にあるカードです。ウィジェットなど本文の外に置いたカードの記録は、全件チェックのたびに外れて次の表示で再記録されます）。同作者の Kashiwazaki SEO Link Doctor はページ内のすべてのリンクを手動で検査するプラグインで、役割が異なるため併用できます。</p>
+</div>
+
+<h2 id="auto-rel">rel の自動付与</h2>
+
+<p>「リンク先の扱い」タブに登録したドメイン（サブドメインを含む。www. の有無は問いません）へのカードに、<code>rel="sponsored"</code> または <code>rel="nofollow"</code> を自動で付けます。ショートコードに <code>rel</code> を指定した場合はそちらが優先されます。<code>target="_blank"</code> のときの <code>noopener</code> は従来どおり付きます。</p>
+
 <h2 id="click-analytics">クリック解析</h2>
 
 <p>リンクカードのクリック数は、専用のカスタムテーブル（wp_kslc_analytics）に記録されます。フロントエンドのアナリティクスJS（2KB）がクリックイベントを検知し、AJAXでサーバーに送信します。</p>
@@ -87,7 +141,7 @@
 <div class="step">
 <span class="step-number">1</span>
 <div class="step-body">
-<p>WordPress管理画面の解析ページを開きます。</p>
+<p>WordPress管理画面の <strong>Kashiwazaki SEO Link Card</strong> を開き、<strong>リンク統計</strong> タブを選びます。</p>
 </div>
 </div>
 
@@ -112,7 +166,7 @@
 
 <h2 id="design-settings">デザイン設定</h2>
 
-<p>リンクカードのデザインは、管理画面の設定ページから細かくカスタマイズできます。</p>
+<p>リンクカードのデザインは、管理画面の <strong>デザイン</strong> タブから細かくカスタマイズできます。</p>
 
 <h3>カラーテーマ</h3>
 
@@ -159,6 +213,7 @@
 <tbody>
 <tr><td>CSS</td><td>約11KB - リンクカードのスタイルシート</td></tr>
 <tr><td>JavaScript</td><td>約2KB - クリック解析用のアナリティクススクリプト</td></tr>
+<tr><td>サムネイル画像</td><td><code>loading="lazy"</code>・<code>decoding="async"</code> と、設定のサムネイルサイズに合わせた <code>width</code> / <code>height</code> 属性を付けて出力します（レイアウトシフトの抑制）</td></tr>
 </tbody>
 </table>
 
@@ -167,7 +222,7 @@
 <a href="troubleshooting.html" class="next">トラブルシューティング &raquo;</a>
 </nav>
 
-<footer class="manual-footer"><p>作者: <a href="https://www.tsuyoshikashiwazaki.jp/profile/" target="_blank" rel="noopener">柏崎剛（Tsuyoshi Kashiwazaki）</a></p><p>プラグイン: Kashiwazaki SEO Link Card v1.0.9</p></footer>
+<footer class="manual-footer"><p>作者: <a href="https://www.tsuyoshikashiwazaki.jp/profile/" target="_blank" rel="noopener">柏崎剛（Tsuyoshi Kashiwazaki）</a></p><p>プラグイン: Kashiwazaki SEO Link Card v1.0.10</p></footer>
 
 </main>
 
