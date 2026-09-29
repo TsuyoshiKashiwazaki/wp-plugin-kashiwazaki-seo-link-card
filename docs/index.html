@@ -11,7 +11,7 @@
 <button class="hamburger-btn" aria-label="Menu" aria-expanded="false">&#9776;</button>
 
 <nav class="sidebar">
-<div class="sidebar-header"><h2 style="color:#fff;">Link Card</h2><span class="version">v1.0.10</span><img src="images/main-visual.png" alt="" style="width:100%;border-radius:4px;margin-top:8px;"></div>
+<div class="sidebar-header"><h2 style="color:#fff;">Link Card</h2><span class="version">v1.0.11</span><img src="images/main-visual.png" alt="" style="width:100%;border-radius:4px;margin-top:8px;"></div>
 <ul><li><a href="index.html">概要</a></li><li><a href="setup.html">インストール・初期設定</a></li><li><a href="link-card-usage.html">リンクカードの使い方</a></li><li><a href="troubleshooting.html">トラブルシューティング</a></li></ul>
 </nav>
 
@@ -53,6 +53,7 @@
 <ul>
 <li><strong>OGPベースのリンクカード</strong> - URLからOGP情報をスクレイピングし、タイトル・説明文・サムネイル画像を含むリッチなカードを自動生成します</li>
 <li><strong>外部・内部リンクの自動判別</strong> - リンク先が外部サイトか内部ページかを自動で判別し、バッジやスタイルを切り替えます</li>
+<li><strong>文中の文字リンク</strong> - <code>[linktext url="…" text="…"]</code> で、カードではなく文章の途中に普通の文字リンクを置けます。転送先への自動追随・rel の自動付与・リンク切れの検知・クリック解析はカードと同じく効きます（<a href="link-card-usage.html#text-link">使い方</a>）</li>
 <li><strong>転送先への自動追随</strong> - リンク先が恒久的に移転（301 / 308）していれば、リダイレクト後の URL をカードのリンク先に使います。302 / 307 の一時的な転送には追随しません。内部リンクは正規のパーマリンクにそろえ、<code>#見出し</code> や <code>?パラメータ</code> は保ちます</li>
 <li><strong>リンク切れの検知</strong> - カード表示時と WP-Cron の定期チェック（既定 1 日 1 回）で 404 / 410 / サーバーエラー / 接続失敗を記録し、管理画面の「リンク切れ一覧」で確認できます</li>
 <li><strong>rel の自動付与</strong> - 登録したドメインへのカードに <code>rel="sponsored"</code> または <code>rel="nofollow"</code> を自動で付けます（ショートコードの rel 指定が優先）</li>
@@ -103,7 +104,7 @@
 <a href="setup.html" class="next">インストール・初期設定 &raquo;</a>
 </nav>
 
-<footer class="manual-footer"><p>作者: <a href="https://www.tsuyoshikashiwazaki.jp/profile/" target="_blank" rel="noopener">柏崎剛（Tsuyoshi Kashiwazaki）</a></p><p>プラグイン: Kashiwazaki SEO Link Card v1.0.10</p></footer>
+<footer class="manual-footer"><p>作者: <a href="https://www.tsuyoshikashiwazaki.jp/profile/" target="_blank" rel="noopener">柏崎剛（Tsuyoshi Kashiwazaki）</a></p><p>プラグイン: Kashiwazaki SEO Link Card v1.0.11</p></footer>
 
 </main>
 

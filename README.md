@@ -3,7 +3,7 @@
 ![WordPress](https://img.shields.io/badge/WordPress-5.5%2B-blue.svg)
 ![PHP](https://img.shields.io/badge/PHP-7.0%2B-blue.svg)
 ![License](https://img.shields.io/badge/license-GPL--2.0%2B-green.svg)
-![Version](https://img.shields.io/badge/version-1.0.10-blue.svg)
+![Version](https://img.shields.io/badge/version-1.0.11-blue.svg)
 
 URLを記述するだけで、ページの情報を取得してカード形式で表示するWordPressプラグインです。OGPデータの自動取得、内部リンク最適化、クリックトラッキング、カスタマイズ可能なデザインなど、豊富な機能を搭載しています。
 
@@ -142,6 +142,34 @@ mv /path/to/wp-plugin-kashiwazaki-seo-link-card kashiwazaki-seo-link-card
 - `[kashiwazaki_seo_link_card]` - 正式名
 - `[nlink]` - 短縮版
 
+### 文中の文字リンク（`[linktext]`）
+
+カードではなく、文章の途中に普通の文字リンクを置くときに使います。出力は段落を壊さないインラインの `<a>` だけです（`div`・`blockquote` は出しません）。転送先への自動追随・rel の自動付与・リンク切れの検知・クリック計測はカードと同じ処理を通ります。
+
+```
+詳しい手順は[linktext url="https://example.com/guide/" text="公式ガイド"]をご覧ください。
+```
+
+出力例:
+
+```html
+<p>詳しい手順は<a href="https://example.com/guide/" target="_blank" rel="noopener" class="kslc-text-link kslc-text-link-external">公式ガイド</a>をご覧ください。</p>
+```
+
+- 閉じタグ（`[/linktext]`）は使いません。念のため閉じタグ付きで書かれても壊れないようにしてあり、中身があれば `text` の代わりにリンク文字として使います。閉じタグなしの `[linktext]` と閉じタグ付きが同じ記事に混ざっても、文章が消えたり別のリンクに吸い込まれたりしません
+- `text` を省くと、リンク文字はリンク先のタイトル（外部は OGP のタイトル、内部は記事タイトル）
+- 正式名は `[kashiwazaki_seo_link_text]`
+- ブロックエディターでは、段落などのツールバーの ▼ にある「SEO文字リンク」から、選んだ文字を文字リンクにできます（カードのブロック「SEOリンクカード」とは別）。本文には目印付きの普通のリンク `<a class="kslc-textlink" href="…">` として保存され、エディター上でもリンクとして見えます。リンクの中をクリックするとリンク先を示す小窓が開き、「編集」で URL と新しいタブを変えたり、「リンク解除」で外したりできます。表示時に転送先への自動追随・rel の自動付与・クリック計測のクラスが加わり、リンク切れの定期チェックの対象にもなります。プラグインを止めても普通のリンクとして残ります
+- リンク先が決まらない（削除済みの投稿・不正な URL）ときはリンクを外して文字だけを残します
+
+| 属性 | 説明 | デフォルト | 例 |
+|------|------|-----------|-----|
+| `url` | リンク先URL | - | `url="https://example.com"` |
+| `post_id` | 投稿ID（内部リンク用） | 0 | `post_id="123"` |
+| `text` | リンク文字 | リンク先のタイトル | `text="詳細はこちら"` |
+| `target` | リンクターゲット | 外部:`_blank`<br>内部:なし | `target="_blank"` |
+| `rel` | rel属性 | 外部:`noopener` | `rel="nofollow"` |
+
 ### ショートコード属性
 
 | 属性 | 説明 | デフォルト | 例 |
@@ -196,8 +224,8 @@ WordPress 管理画面のメニュー「Kashiwazaki SEO Link Card」を開くと
 
 ### アナリティクス
 「リンク統計」タブから以下の情報を確認できます：
-- リンクごとのクリック数
-- 掲載ページごとの集計
+- 掲載ページごとの集計（ページ名から詳細へ移れます）
+- ページ内のリンク 1 つずつのクリック数（位置 = 上から何番目か、種類 = カード / 文字リンク、リンク文字、リンク先 URL）。同じリンク先へのカードと文字リンクも分けて数えます
 - クリック日時の詳細ログ
 - 期間フィルタリング
 
@@ -231,9 +259,13 @@ wp_kslc_analytics
 ├── page_url (varchar) - 掲載ページURL
 ├── ip_address (varchar) - アクセス元IP
 ├── user_agent (text) - ユーザーエージェント
-├── title (varchar) - リンクタイトル
+├── title (varchar) - リンクタイトル（カードはタイトル、文字リンクはリンク文字）
+├── link_type (varchar) - 種類（card / text、記録前のクリックは空）
+├── link_pos (smallint) - ページ内の位置（上から何番目か、記録前のクリックは 0）
 └── clicked_at (datetime) - クリック日時
 ```
+
+プラグインを更新したときは、表の版（`kslc_db_version`）を見て足りない列を自動で追加します（既存の記録は残ります）。
 
 ## カスタマイズ
 

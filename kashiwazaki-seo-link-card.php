@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Kashiwazaki SEO Link Card
  * Plugin URI: https://www.tsuyoshikashiwazaki.jp
- * Version: 1.0.10
+ * Version: 1.0.11
  * Author: 柏崎剛 (Tsuyoshi Kashiwazaki)
  * Author URI: https://www.tsuyoshikashiwazaki.jp/profile/
  * Description: URLを記述するだけで、ページの情報を取得してカード形式で表示するプラグインです。
@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-define( 'KSLC_PLUGIN_VERSION', '1.0.10' );
+define( 'KSLC_PLUGIN_VERSION', '1.0.11' );
 define( 'KSLC_PLUGIN_FILE', __FILE__ );
 
 // User-Agent for external requests (can be filtered)
@@ -47,7 +47,10 @@ if (!defined('KSLC_INCLUDES_LOADED')) {
     require_once plugin_dir_path( __FILE__ ) . 'includes/link-check.php';
 }
 
-// プラグイン有効化時にデータベーステーブルを作成
+// クリック統計テーブルの版（列を増やしたら上げる）。2: どのリンクかを示す link_type（card / text）と link_pos（ページ内の何番目か）を追加
+define( 'KSLC_DB_VERSION', '2' );
+
+// プラグイン有効化時・表の版が古いときにデータベーステーブルを作成／更新（dbDelta は足りない列を足す）
 function kslc_create_analytics_table() {
     global $wpdb;
 
@@ -55,6 +58,7 @@ function kslc_create_analytics_table() {
 
     $charset_collate = $wpdb->get_charset_collate();
 
+    // dbDelta の書式: 1 行 1 列、PRIMARY KEY の後は空白 2 つ、KEY を使う（公式 Plugin Handbook「Creating Tables with Plugins」）
     $sql = "CREATE TABLE $table_name (
         id bigint(20) NOT NULL AUTO_INCREMENT,
         url varchar(500) NOT NULL,
@@ -62,22 +66,37 @@ function kslc_create_analytics_table() {
         ip_address varchar(45) NOT NULL,
         user_agent text,
         title varchar(500),
+        link_type varchar(10) DEFAULT '' NOT NULL,
+        link_pos smallint(5) unsigned DEFAULT 0 NOT NULL,
         clicked_at datetime DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (id),
+        PRIMARY KEY  (id),
         KEY url_index (url(191)),
         KEY page_url_index (page_url(191)),
         KEY clicked_at_index (clicked_at)
     ) $charset_collate;";
 
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-    $result = dbDelta($sql);
+    dbDelta($sql);
 
     // テーブルが作成されたか確認
     $table_exists = $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table_name ) ) === $table_name;
+    if ( $table_exists ) {
+        update_option( 'kslc_db_version', KSLC_DB_VERSION );
+    }
 
     return $table_exists;
 }
 register_activation_hook(__FILE__, 'kslc_create_analytics_table');
+
+/**
+ * プラグインを更新したとき（有効化フックは呼ばれない）に表の版を確かめ、古ければ列を足す
+ */
+function kslc_maybe_upgrade_analytics_table() {
+    if ( KSLC_DB_VERSION !== get_option( 'kslc_db_version' ) ) {
+        kslc_create_analytics_table();
+    }
+}
+add_action( 'plugins_loaded', 'kslc_maybe_upgrade_analytics_table' );
 
 // リンク切れの定期チェック（WP-Cron）: 有効化時に登録し、無効化時に必ず解除する
 register_activation_hook(__FILE__, 'kslc_schedule_link_check');

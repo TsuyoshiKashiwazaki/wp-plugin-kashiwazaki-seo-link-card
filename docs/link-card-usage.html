@@ -11,7 +11,7 @@
 <button class="hamburger-btn" aria-label="Menu" aria-expanded="false">&#9776;</button>
 
 <nav class="sidebar">
-<div class="sidebar-header"><h2 style="color:#fff;">Link Card</h2><span class="version">v1.0.10</span><img src="images/main-visual.png" alt="" style="width:100%;border-radius:4px;margin-top:8px;"></div>
+<div class="sidebar-header"><h2 style="color:#fff;">Link Card</h2><span class="version">v1.0.11</span><img src="images/main-visual.png" alt="" style="width:100%;border-radius:4px;margin-top:8px;"></div>
 <ul><li><a href="index.html">概要</a></li><li><a href="setup.html">インストール・初期設定</a></li><li><a href="link-card-usage.html">リンクカードの使い方</a></li><li><a href="troubleshooting.html">トラブルシューティング</a></li></ul>
 </nav>
 
@@ -118,7 +118,7 @@
 </thead>
 <tbody>
 <tr><td>カードの表示時</td><td>OGP 情報の取得に失敗したときに記録します。失敗した URL は 1 時間は再取得しません</td></tr>
-<tr><td>定期チェック（WP-Cron）</td><td>公開済み投稿の本文にあるリンクカードのリンク先を確認します。既定は 24 時間ごと（1〜720 時間で変更可）。1 回の実行は 20 秒を上限とし、残りは 1 分後に続きから確認します</td></tr>
+<tr><td>定期チェック（WP-Cron）</td><td>公開済み投稿の本文にあるリンクカードと文字リンク（<code>[linktext]</code> とブロックエディターの「SEO文字リンク」）のリンク先を確認します。既定は 24 時間ごと（1〜720 時間で変更可）。1 回の実行は 20 秒を上限とし、残りは 1 分後に続きから確認します</td></tr>
 <tr><td>今すぐチェック</td><td>「リンク切れ一覧」タブのボタンで、定期チェックと同じ確認をその場で始めます</td></tr>
 </tbody>
 </table>
@@ -132,9 +132,83 @@
 
 <p>「リンク先の扱い」タブに登録したドメイン（サブドメインを含む。www. の有無は問いません）へのカードに、<code>rel="sponsored"</code> または <code>rel="nofollow"</code> を自動で付けます。ショートコードに <code>rel</code> を指定した場合はそちらが優先されます。<code>target="_blank"</code> のときの <code>noopener</code> は従来どおり付きます。</p>
 
+<h2 id="text-link">文中の文字リンク</h2>
+
+<p>カードではなく、文章の途中に「〇〇の<u>詳細はこちら</u>です」のような普通の文字リンクを置くときは <code>[linktext]</code> を使います。見た目は文字リンクのまま、転送先への自動追随・rel の自動付与・リンク切れの検知・クリック解析がカードと同じく効きます。</p>
+
+<pre><code>詳しい手順は[linktext url="https://example.com/guide/" text="公式ガイド"]をご覧ください。</code></pre>
+
+<p>表示されるのは段落の中の <code>&lt;a&gt;</code> だけです。カードの枠や引用（<code>&lt;blockquote&gt;</code>）は出しません。</p>
+
+<pre><code>&lt;p&gt;詳しい手順は&lt;a href="https://example.com/guide/" target="_blank" rel="noopener" class="kslc-text-link kslc-text-link-external"&gt;公式ガイド&lt;/a&gt;をご覧ください。&lt;/p&gt;</code></pre>
+
+<figure class="screenshot">
+    <img src="images/screenshots/07-frontend-textlink.png" alt="文中の文字リンクの表示例" class="lightbox-trigger">
+    <figcaption>文中に置いた文字リンク。見た目はテーマの普通のリンクと同じです</figcaption>
+</figure>
+
+<table>
+<thead>
+<tr><th style="width:35%;">書き方</th><th>動作</th></tr>
+</thead>
+<tbody>
+<tr><td><code>[linktext url="URL" text="文字"]</code></td><td>「文字」をリンク文字にします</td></tr>
+<tr><td><code>[linktext url="URL"]</code></td><td><code>text</code> を省くと、リンク先のタイトル（外部は OGP のタイトル、内部は記事タイトル）をリンク文字にします</td></tr>
+<tr><td><code>[linktext post_id="123" text="文字"]</code></td><td>投稿 ID で内部リンクにします</td></tr>
+<tr><td><code>target</code> / <code>rel</code></td><td>カードと同じです。外部リンクは既定で新しいタブ（<code>noopener</code> 付き）、登録ドメインへは <code>rel</code> を自動で付けます</td></tr>
+</tbody>
+</table>
+
+<div class="callout callout-note">
+<p class="callout-title">メモ</p>
+<p>閉じタグ（<code>[/linktext]</code>）は使いません。閉じタグ付きで書いた場合も壊れないようにしてあり、中身があれば <code>text</code> の代わりにリンク文字として使います。閉じタグなしと閉じタグ付きが同じ記事に混ざっても、文章が消えることはありません。リンク先の投稿が削除されているなどでリンク先が決まらないときは、リンクを外して文字だけを残します（文章が途中で欠けません）。正式名は <code>[kashiwazaki_seo_link_text]</code> で、同じ動作です。</p>
+</div>
+
+<h3>ブロックエディターから入れる</h3>
+
+<p>ブロックエディターでは、ショートコードを書かずに普通のリンクと同じ感覚で入れられます。エディター上でもリンクとして見え（破線の下線と <strong>↗</strong> の印で普通のリンクと見分けられます）、あとからクリックして直せます。</p>
+
+<div class="step">
+<span class="step-number">1</span>
+<div class="step-body">
+<p>段落の中でリンクにしたい文字を選び、ツールバーの <strong>▼（さらに表示）</strong> から <strong>SEO文字リンク</strong> を選びます。</p>
+</div>
+</div>
+
+<div class="step">
+<span class="step-number">2</span>
+<div class="step-body">
+<p>リンク先 URL を入力し、必要なら <strong>新しいタブで開く</strong> を切り替えて <strong>リンクにする</strong> を押します。リンク文字を書き換えると、選んだ文字がその文字に置き換わります。</p>
+</div>
+</div>
+
+<figure class="screenshot">
+    <img src="images/screenshots/08-editor-textlink.png" alt="ブロックエディターのSEO文字リンクの追加画面" class="lightbox-trigger">
+    <figcaption>「SEO文字リンク」の追加画面。カードのブロック「SEOリンクカード」とは別の機能です</figcaption>
+</figure>
+
+<div class="step">
+<span class="step-number">3</span>
+<div class="step-body">
+<p>あとから直すときは、リンクの中をクリックします。リンク先と「新しいタブで開くか」を示す小窓が開きます。<strong>編集</strong> を押すと URL と <strong>新しいタブで開く</strong> を変えられ、<strong>保存</strong> で反映します。リンクを外すときは <strong>リンク解除</strong> を押します。</p>
+</div>
+</div>
+
+<figure class="screenshot">
+    <img src="images/screenshots/09-editor-textlink-edit.png" alt="SEO文字リンクの編集の小窓" class="lightbox-trigger">
+    <figcaption>リンクの中をクリックすると開く小窓。「編集」で URL などを直せます</figcaption>
+</figure>
+
+<div class="callout callout-note">
+<p class="callout-title">メモ</p>
+<p>ブロックエディターで入れたリンクは、本文には目印（<code>class="kslc-textlink"</code>）の付いた普通のリンクとして保存され、表示するときに転送先への自動追随・rel の自動付与・クリック解析の設定が加わります。プラグインを停止しても普通のリンクとして表示されます。リンク切れの定期チェックの対象にもなります。</p>
+</div>
+
 <h2 id="click-analytics">クリック解析</h2>
 
-<p>リンクカードのクリック数は、専用のカスタムテーブル（wp_kslc_analytics）に記録されます。フロントエンドのアナリティクスJS（2KB）がクリックイベントを検知し、AJAXでサーバーに送信します。</p>
+<p>リンクカードと文字リンク（<code>[linktext]</code>）のクリック数は、専用のカスタムテーブル（wp_kslc_analytics）に記録されます。フロントエンドのアナリティクスJS（2KB）がクリックイベントを検知し、AJAXでサーバーに送信します。</p>
+
+<p>クリックごとに、掲載ページ・リンク先 URL・リンク文字に加えて、<strong>種類</strong>（カード / 文字リンク）と<strong>位置</strong>（そのページの上から何番目のリンクか。カードと文字リンクを通しで数えます）を記録します。同じリンク先へのカードと文字リンクが 1 つのページにあっても、どちらが押されたかを分けて確認できます。</p>
 
 <h3>解析画面の使い方</h3>
 
@@ -148,7 +222,12 @@
 <div class="step">
 <span class="step-number">2</span>
 <div class="step-body">
-<p>リンクカードごとのクリック数、クリック日時などの統計情報を確認できます。</p>
+<p>ページ一覧のページ名をクリックすると、そのページのリンク 1 つずつについて、位置・種類・リンク文字・リンク先 URL・クリック数・割合が表示されます。「位置」は記事を書き換えて並びが変わると変わります。「不明」は種類と位置の記録を始める前のクリックです。</p>
+
+<figure class="screenshot">
+    <img src="images/screenshots/10-stats-detail.png" alt="リンク別クリック統計" class="lightbox-trigger">
+    <figcaption>ページごとのリンク別クリック統計。同じリンク先でも、文字リンク（1 番目）とカード（9 番目）が別の行になります</figcaption>
+</figure>
 </div>
 </div>
 
@@ -222,7 +301,7 @@
 <a href="troubleshooting.html" class="next">トラブルシューティング &raquo;</a>
 </nav>
 
-<footer class="manual-footer"><p>作者: <a href="https://www.tsuyoshikashiwazaki.jp/profile/" target="_blank" rel="noopener">柏崎剛（Tsuyoshi Kashiwazaki）</a></p><p>プラグイン: Kashiwazaki SEO Link Card v1.0.10</p></footer>
+<footer class="manual-footer"><p>作者: <a href="https://www.tsuyoshikashiwazaki.jp/profile/" target="_blank" rel="noopener">柏崎剛（Tsuyoshi Kashiwazaki）</a></p><p>プラグイン: Kashiwazaki SEO Link Card v1.0.11</p></footer>
 
 </main>
 

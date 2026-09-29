@@ -428,6 +428,13 @@ function kslc_render_tab_usage() {
         <h3>自動判別機能</h3>
         <p>リンク先が自サイト内かどうかを自動で判別し、上記の設定に応じて適切なデザインで表示されます。</p>
 
+        <h2>文中の文字リンク</h2>
+        <p>カードではなく、文章の途中に普通の文字リンクを置くときは <code>[linktext]</code> を使います。見た目は文字リンクのまま、転送先への自動追随・rel の自動付与・リンク切れの検知・クリック計測がカードと同じく効きます。</p>
+        <p><code>[linktext url="https://example.com/" text="詳細はこちら"]</code> → 「詳細はこちら」という文字リンク</p>
+        <p><code>[linktext url="https://example.com/"]</code> → リンク文字はリンク先のタイトル（内部リンクは記事タイトル）</p>
+        <p><code>[linktext post_id="123" text="こちらの記事"]</code> → 投稿 ID で内部リンク</p>
+        <p><small>※ 閉じタグ（<code>[/linktext]</code>）は使いません。<code>target</code> と <code>rel</code> もカードと同じく指定できます。ブロックエディターでは段落のツールバーの ▼ にある「SEO文字リンク」から、普通のリンクと同じ感覚で入れられます（リンクの中をクリックすると URL などを直せます）。</small></p>
+
         <h2>サポート</h2>
         <p>ご不明な点や不具合報告は、<a href="https://tsuyoshikashiwazaki.jp/contact/" target="_blank" rel="noopener">作者のサイト</a>までお気軽にお問い合わせください。</p>
     <?php
@@ -563,7 +570,7 @@ function kslc_get_pages_with_links($period = 'all') {
                 ELSE page_url
             END as normalized_page_url,
             COUNT(*) as total_clicks,
-            COUNT(DISTINCT url) as unique_links
+            COUNT(DISTINCT url, link_type, link_pos) as unique_links
         FROM $table_name
         $where_clause
         GROUP BY
@@ -588,13 +595,14 @@ function kslc_get_page_link_stats($page_url, $period = 'all') {
     global $wpdb;
     $table_name = $wpdb->prefix . 'kslc_analytics';
 
-    // ページURLを正規化（#とクエリパラメータを削除）
+    // ページURLを正規化（# 以降だけを削除）。ページ一覧は ?query を含む page_url ごとに 1 行なので、詳細も同じ単位で集計する
+    // （? 以降まで削ると、パラメータ付きで開かれたページを選んだときに別の行（パラメータ無しのページ）の数字が出る）
     $normalized_page_url = kslc_normalize_url($page_url);
-    $normalized_page_url = strtok($normalized_page_url, '?');
 
     // 期間に応じた WHERE 句を作成（正規化されたページURLを使用）
     $where_clause = "WHERE (page_url = %s OR page_url LIKE %s)";
-    $params = [$normalized_page_url, $normalized_page_url . '#%'];
+    // LIKE の % と _ は URL に含まれ得る（utm_source など）ので esc_like でそのままの文字として比べる
+    $params = [$normalized_page_url, $wpdb->esc_like( $normalized_page_url ) . '#%'];
 
     switch ($period) {
         case '1day':
@@ -617,18 +625,21 @@ function kslc_get_page_link_stats($page_url, $period = 'all') {
         $params
     ));
 
-    // リンク別統計（URLは既に正規化されているはず）
+    // リンク別統計: リンク先 URL・種類（カード / 文字リンク）・ページ内の位置の組ごとに数える
+    // （同じ URL のカードと文字リンクがあっても別の行になる。種類と位置を記録する前のクリックは「不明」として 1 行にまとまる）
     $link_stats = $wpdb->get_results($wpdb->prepare("
         SELECT
             url as normalized_url,
             url as original_url,
+            link_type,
+            link_pos,
             MAX(title) as title,
             COUNT(*) as click_count,
             MAX(clicked_at) as last_clicked
         FROM $table_name
         $where_clause
-        GROUP BY url
-        ORDER BY click_count DESC
+        GROUP BY url, link_type, link_pos
+        ORDER BY click_count DESC, link_pos ASC
     ", $params));
 
     // 割合を計算
@@ -735,14 +746,14 @@ function kslc_render_tab_analytics() {
         <?php if (empty($selected_page) && $table_exists && $total_records > 0): ?>
             <!-- ページ選択が未選択の場合：ページ一覧を表示 -->
             <h2>リンクカードが設置されているページ一覧</h2>
-            <p>上記のプルダウンからページを選択すると、そのページでクリックされたリンクの詳細統計を確認できます。</p>
+            <p>ページ名をクリックする（または上のプルダウンで選ぶ）と、そのページのリンク 1 つずつのクリック数を確認できます。</p>
 
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
                         <th style="width: 60%;">ページタイトル</th>
                         <th style="width: 20%;">総クリック数</th>
-                        <th style="width: 20%;">ユニークリンク数</th>
+                        <th style="width: 20%;">クリックされたリンク数</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -751,7 +762,7 @@ function kslc_render_tab_analytics() {
                         <?php foreach ($pages_with_links as $page): ?>
                             <tr>
                                 <td>
-                                    <strong><?php echo esc_html($page->page_title); ?></strong><br>
+                                    <strong><a href="<?php echo esc_url( add_query_arg( [ 'page' => 'kashiwazaki-seo-link-card', 'tab' => 'stats', 'period' => rawurlencode( $selected_period ), 'selected_page' => rawurlencode( $page->page_url ) ], admin_url( 'admin.php' ) ) ); ?>"><?php echo esc_html($page->page_title); ?></a></strong><br>
                                     <small style="color: #666;">
                                         <a href="<?php echo esc_url($page->page_url); ?>" target="_blank" rel="noopener">
                                             <?php echo esc_html($page->page_url); ?>
@@ -786,22 +797,34 @@ function kslc_render_tab_analytics() {
                 </a>
             </p>
             <p><strong>総クリック数:</strong> <?php echo number_format($page_stats['total_clicks']); ?> 回</p>
+            <p class="description">「位置」はページの上から数えて何番目のリンクカード・文字リンクか（カードと文字リンクを通しで数えます）。記事を書き換えて並びが変わると番号も変わります。「不明」はこの記録を始める前のクリックです。</p>
 
             <a href="<?php echo esc_url( add_query_arg( [ 'page' => 'kashiwazaki-seo-link-card', 'tab' => 'stats', 'period' => $selected_period ], admin_url( 'admin.php' ) ) ); ?>" class="button" style="margin: 10px 0;">← ページ一覧に戻る</a>
 
             <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
                 <thead>
                     <tr>
-                        <th style="width: 40%;">リンクタイトル</th>
-                        <th style="width: 30%;">リンクURL</th>
-                        <th style="width: 15%;">クリック数</th>
-                        <th style="width: 15%;">割合</th>
+                        <th style="width: 9%;">位置</th>
+                        <th style="width: 11%;">種類</th>
+                        <th style="width: 28%;">リンク文字</th>
+                        <th style="width: 28%;">リンクURL</th>
+                        <th style="width: 10%;">クリック数</th>
+                        <th style="width: 14%;">割合</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (!empty($page_stats['link_stats'])): ?>
                         <?php foreach ($page_stats['link_stats'] as $link): ?>
                             <tr>
+                                <td>
+                                    <?php echo (int) $link->link_pos > 0 ? esc_html( sprintf( '%d 番目', (int) $link->link_pos ) ) : '<span style="color:#888;">不明</span>'; ?>
+                                </td>
+                                <td>
+                                    <?php
+                                    $kslc_type_labels = array( 'card' => 'カード', 'text' => '文字リンク' );
+                                    echo isset( $kslc_type_labels[ $link->link_type ] ) ? esc_html( $kslc_type_labels[ $link->link_type ] ) : '<span style="color:#888;">不明</span>';
+                                    ?>
+                                </td>
                                 <td>
                                     <strong><?php echo esc_html($link->title ?: 'タイトル不明'); ?></strong>
                                 </td>
@@ -823,7 +846,7 @@ function kslc_render_tab_analytics() {
                         <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="4" style="text-align: center; padding: 20px;">
+                            <td colspan="6" style="text-align: center; padding: 20px;">
                                 このページで選択した期間にクリックデータがありません。
                             </td>
                         </tr>
@@ -909,7 +932,7 @@ function kslc_render_tab_broken_links() {
                     ／ 実行中: <?php echo (int) $state['cursor']; ?> / <?php echo count( $state['queue'] ); ?> 件
                 <?php endif; ?>
             </p>
-            <p>対象: 公開済み投稿の本文にあるリンクカード（<code>[linkcard]</code> / <code>[nlink]</code> / <code>[kashiwazaki_seo_link_card]</code>）のリンク先。記録するのは 404 / 410 / 5xx / 接続失敗です（401 / 403 / 429 はボット対策で返ることが多いため記録しません）。<code>post_id</code> 指定のカードは <code>?p=ID</code> 形式で表示します。復旧したリンクと本文から消したカードの記録は、全件のチェックが完了したときに一覧から外れます。</p>
+            <p>対象: 公開済み投稿の本文にあるリンクカード（<code>[linkcard]</code> / <code>[nlink]</code> / <code>[kashiwazaki_seo_link_card]</code>）と文字リンク（<code>[linktext]</code> / <code>[kashiwazaki_seo_link_text]</code> / ブロックエディターの「SEO文字リンク」）のリンク先。記録するのは 404 / 410 / 5xx / 接続失敗です（401 / 403 / 429 はボット対策で返ることが多いため記録しません）。<code>post_id</code> 指定のカードは <code>?p=ID</code> 形式で表示します。復旧したリンクと本文から消したカードの記録は、全件のチェックが完了したときに一覧から外れます。</p>
         </div>
 
         <form method="post" style="display: inline-block; margin-right: 10px;">

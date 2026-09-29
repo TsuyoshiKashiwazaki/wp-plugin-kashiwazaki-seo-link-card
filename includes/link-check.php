@@ -184,25 +184,49 @@ function kslc_collect_card_links() {
         return [];
     }
 
+    // カード（[linkcard] [nlink] [kashiwazaki_seo_link_card]）と文字リンク（[linktext] [kashiwazaki_seo_link_text]）の両方
+    $tags = kslc_shortcode_tags();
+
     $type_placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
+    $like_clauses      = implode( ' OR ', array_fill( 0, count( $tags ), 'post_content LIKE %s' ) );
+    $like_params = array();
+    foreach ( $tags as $tag ) {
+        $like_params[] = '%' . $wpdb->esc_like( '[' . $tag ) . '%';
+    }
+    // ブロックエディターの「SEO文字リンク」で入れた目印付きリンク <a class="kslc-textlink">
+    $like_clauses .= ' OR post_content LIKE %s';
+    $like_params[] = '%' . $wpdb->esc_like( 'kslc-textlink' ) . '%';
     $sql = "SELECT ID, post_content FROM {$wpdb->posts}
         WHERE post_status = 'publish' AND post_type IN ($type_placeholders)
-        AND (post_content LIKE %s OR post_content LIKE %s OR post_content LIKE %s)";
-    $params = array_merge( $post_types, [
-        '%' . $wpdb->esc_like( '[linkcard' ) . '%',
-        '%' . $wpdb->esc_like( '[nlink' ) . '%',
-        '%' . $wpdb->esc_like( '[kashiwazaki_seo_link_card' ) . '%',
-    ] );
+        AND ($like_clauses)";
+    $params = array_merge( $post_types, $like_params );
     $rows = $wpdb->get_results( $wpdb->prepare( $sql, $params ) ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
 
-    $pattern = '/' . get_shortcode_regex( [ 'kashiwazaki_seo_link_card', 'linkcard', 'nlink' ] ) . '/s';
+    // get_shortcode_regex() は閉じタグなし・閉じタグ付きのどちらにも一致し、属性は $m[3] に入る
+    $pattern = '/' . get_shortcode_regex( $tags ) . '/s';
     $links = [];
 
     foreach ( (array) $rows as $row ) {
+        foreach ( kslc_extract_text_link_marker_urls( $row->post_content ) as $marker_url ) {
+            $url = kslc_normalize_url( $marker_url );
+            $key = md5( $url );
+            if ( ! isset( $links[ $key ] ) ) {
+                $links[ $key ] = [ 'url' => $url, 'post_id' => 0, 'pages' => [] ];
+            }
+            if ( ! in_array( (int) $row->ID, $links[ $key ]['pages'], true ) ) {
+                $links[ $key ]['pages'][] = (int) $row->ID;
+            }
+        }
+
         if ( ! preg_match_all( $pattern, $row->post_content, $matches, PREG_SET_ORDER ) ) {
             continue;
         }
-        foreach ( $matches as $m ) {
+        // 閉じタグ付きの中身（$m[5]）に入ったショートコードも拾う（単独型と囲み型が混在すると、後ろのショートコードが前の中身に入るため）
+        for ( $i = 0; $i < count( $matches ); $i++ ) {
+            $m = $matches[ $i ];
+            if ( isset( $m[5] ) && '' !== $m[5] && preg_match_all( $pattern, $m[5], $inner, PREG_SET_ORDER ) ) {
+                $matches = array_merge( $matches, $inner );
+            }
             $atts = shortcode_parse_atts( $m[3] );
             if ( ! is_array( $atts ) ) {
                 $atts = [];
@@ -469,4 +493,34 @@ add_action( 'init', 'kslc_maybe_schedule_link_check' );
  */
 function kslc_is_link_doctor_active() {
     return class_exists( 'KashiwazakiSEOLinkDoctor' ) || defined( 'KSV_VERSION' );
+}
+
+/**
+ * 本文から目印付きリンク <a class="kslc-textlink" href="…"> の URL を集める（リンク切れの定期チェック用）
+ *
+ * @param string $content 投稿本文
+ * @return string[] http(s) の絶対 URL
+ */
+function kslc_extract_text_link_marker_urls( $content ) {
+    $urls = array();
+    if ( ! is_string( $content ) || false === strpos( $content, 'kslc-textlink' ) || ! class_exists( 'WP_HTML_Tag_Processor' ) ) {
+        return $urls;
+    }
+    $tags = new WP_HTML_Tag_Processor( $content );
+    while ( $tags->next_tag( array( 'tag_name' => 'a', 'class_name' => 'kslc-textlink' ) ) ) {
+        $href = $tags->get_attribute( 'href' );
+        if ( ! is_string( $href ) ) {
+            continue;
+        }
+        $url = trim( $href );
+        if ( strpos( $url, '/' ) === 0 && strpos( $url, '//' ) !== 0 ) {
+            $url = home_url( $url );
+        }
+        $url = sanitize_url( $url );
+        if ( '' === $url || ! filter_var( $url, FILTER_VALIDATE_URL ) || ! kslc_is_http_url( $url ) ) {
+            continue;
+        }
+        $urls[] = $url;
+    }
+    return $urls;
 }

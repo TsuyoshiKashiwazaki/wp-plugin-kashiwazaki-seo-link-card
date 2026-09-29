@@ -805,3 +805,246 @@
         }
     });
 })(window.wp);
+
+
+/**
+ * 文中の文字リンク（書式「SEO文字リンク」）
+ * カードのブロック（kslc/link-card）とは別物。選んだ文字を目印付きの普通のリンク <a class="kslc-textlink" href="…"> にする。
+ * - エディター上は普通のリンクとして見え、カーソルを置くと編集用の小窓が開く（URL・新しいタブ・リンク解除）
+ * - 表示時にサーバー側（kslc_filter_text_link_markers）が転送先への自動追随・rel の自動付与・クリック計測のクラスを足す
+ * - プラグインを止めても普通のリンクとして残る
+ * 標準のリンク（core/link）は tagName "a"・className null。こちらは className "kslc-textlink" で区別する（rich-text は className ごとに一意）
+ */
+(function (wp) {
+    if (!wp || !wp.richText || !wp.element || !wp.components) {
+        return;
+    }
+    const { registerFormatType, applyFormat, removeFormat, insert, slice, getTextContent, useAnchor } = wp.richText;
+    const blockEditor = wp.blockEditor || wp.editor;
+    const RichTextToolbarButton = blockEditor && blockEditor.RichTextToolbarButton;
+    if (!RichTextToolbarButton || !applyFormat || !useAnchor) {
+        return;
+    }
+    const { Modal, Popover, TextControl, Button, ToggleControl } = wp.components;
+    const { Fragment, createElement: el, useState, useEffect } = wp.element;
+    const { __ } = wp.i18n;
+
+    const FORMAT_NAME = 'kslc/text-link';
+
+    function isHttpUrl(url) {
+        return /^https?:\/\//i.test(String(url).trim()) || /^\/(?!\/)/.test(String(url).trim());
+    }
+
+    function makeFormat(url, blank) {
+        const attributes = { url: String(url).trim() };
+        if (blank) {
+            attributes.target = '_blank';
+        }
+        return { type: FORMAT_NAME, attributes: attributes };
+    }
+
+    // カーソル位置を含む目印付きリンクの範囲 [start, end) を返す
+    function findFormatBounds(value) {
+        const formats = value.formats || [];
+        const has = function (i) {
+            return !!(formats[i] && formats[i].some(function (f) { return f.type === FORMAT_NAME; }));
+        };
+        let pos = value.start;
+        if (!has(pos) && pos > 0 && has(pos - 1)) {
+            pos = pos - 1;
+        }
+        if (!has(pos)) {
+            return null;
+        }
+        let start = pos;
+        let end = pos;
+        while (start > 0 && has(start - 1)) {
+            start--;
+        }
+        while (end < formats.length && has(end)) {
+            end++;
+        }
+        return [start, end];
+    }
+
+    const settings = {
+        title: __('SEO文字リンク', 'kashiwazaki-seo-link-card'),
+        tagName: 'a',
+        className: 'kslc-textlink',
+        attributes: {
+            url: 'href',
+            target: 'target'
+        },
+        edit: TextLinkEdit
+    };
+
+    function field(child) {
+        return el('div', { className: 'kslc-tl-field' }, child);
+    }
+
+    function TextLinkEdit(props) {
+        const { isActive, activeAttributes, value, onChange, contentRef } = props;
+        const [isAdding, setAdding] = useState(false);
+        const [isOpen, setOpen] = useState(false);      // リンクの中にカーソルがあるときの小窓
+        const [mode, setMode] = useState('view');        // 'view'（URL と操作ボタン）/ 'edit'（入力欄）
+        const [url, setUrl] = useState('');
+        const [text, setText] = useState('');
+        const [blank, setBlank] = useState(false);
+        const anchor = useAnchor({ editableContentElement: contentRef && contentRef.current, settings: settings });
+
+        const activeUrl = (activeAttributes && activeAttributes.url) || '';
+        const activeBlank = !!(activeAttributes && activeAttributes.target === '_blank');
+
+        // リンクの中にカーソルが入ったら、まず URL と操作ボタンだけの小窓を開く（標準のリンクと同じ流れ）
+        useEffect(function () {
+            if (isActive) {
+                setUrl(activeUrl);
+                setBlank(activeBlank);
+                setMode('view');
+                setOpen(true);
+            } else {
+                setOpen(false);
+            }
+        }, [isActive, activeUrl, activeBlank]);
+
+        const openAdd = function () {
+            if (isActive) {
+                setUrl(activeUrl);
+                setBlank(activeBlank);
+                setMode('edit');
+                setOpen(true);
+                return;
+            }
+            setText(getTextContent(slice(value)));
+            setUrl('');
+            setBlank(false);
+            setAdding(true);
+        };
+
+        const add = function () {
+            if (!isHttpUrl(url)) {
+                return;
+            }
+            const selected = getTextContent(slice(value));
+            const label = text.trim() !== '' ? text.trim() : (selected !== '' ? selected : url.trim());
+            let next = value;
+            const start = value.start;
+            let end = value.end;
+            if (label !== selected) {
+                // リンク文字を入れ直す（選択が無いときや、文字を書き換えたとき）
+                next = insert(value, label);
+                end = start + label.length;
+            }
+            onChange(applyFormat(next, makeFormat(url, blank), start, end));
+            setAdding(false);
+        };
+
+        const update = function () {
+            const bounds = findFormatBounds(value);
+            if (!bounds || !isHttpUrl(url)) {
+                return;
+            }
+            let next = removeFormat(value, FORMAT_NAME, bounds[0], bounds[1]);
+            next = applyFormat(next, makeFormat(url, blank), bounds[0], bounds[1]);
+            onChange(next);
+            setMode('view');
+        };
+
+        const unlink = function () {
+            const bounds = findFormatBounds(value);
+            if (!bounds) {
+                return;
+            }
+            onChange(removeFormat(value, FORMAT_NAME, bounds[0], bounds[1]));
+            setOpen(false);
+        };
+
+        const urlField = el(TextControl, {
+            label: __('リンク先 URL', 'kashiwazaki-seo-link-card'),
+            value: url,
+            type: 'url',
+            placeholder: 'https://example.com/',
+            onChange: setUrl,
+            help: url.trim() !== '' && !isHttpUrl(url) ? __('https:// から始まる URL か、/ から始まるサイト内のパスを入力してください。', 'kashiwazaki-seo-link-card') : undefined,
+            __nextHasNoMarginBottom: true,
+            __next40pxDefaultSize: true
+        });
+        const blankField = el(ToggleControl, {
+            label: __('新しいタブで開く', 'kashiwazaki-seo-link-card'),
+            checked: blank,
+            onChange: setBlank,
+            __nextHasNoMarginBottom: true
+        });
+
+        // 小窓: 表示モード（URL・新しいタブの有無・リンク解除・編集）
+        const viewPanel = el('div', { className: 'kslc-tl-panel' },
+            el('div', { className: 'kslc-tl-head' },
+                el('span', { className: 'kslc-tl-title' }, __('SEO文字リンク', 'kashiwazaki-seo-link-card')),
+                el(Button, { icon: 'no-alt', size: 'small', label: __('閉じる', 'kashiwazaki-seo-link-card'), onClick: function () { setOpen(false); } })
+            ),
+            el('div', { className: 'kslc-tl-url' },
+                el('span', { className: 'dashicons dashicons-admin-links', 'aria-hidden': 'true' }),
+                el('a', { href: activeUrl, target: '_blank', rel: 'noopener noreferrer', title: activeUrl }, activeUrl.replace(/^https?:\/\//i, ''))
+            ),
+            el('p', { className: 'kslc-tl-meta' }, activeBlank ? __('新しいタブで開きます', 'kashiwazaki-seo-link-card') : __('同じタブで開きます', 'kashiwazaki-seo-link-card')),
+            el('div', { className: 'kslc-tl-foot' },
+                el(Button, { variant: 'tertiary', isDestructive: true, onClick: unlink, __next40pxDefaultSize: true }, __('リンク解除', 'kashiwazaki-seo-link-card')),
+                el(Button, { variant: 'secondary', onClick: function () { setUrl(activeUrl); setBlank(activeBlank); setMode('edit'); }, __next40pxDefaultSize: true }, __('編集', 'kashiwazaki-seo-link-card'))
+            )
+        );
+
+        // 小窓: 編集モード（URL・新しいタブ・キャンセル・保存）
+        const editPanel = el('div', { className: 'kslc-tl-panel' },
+            el('div', { className: 'kslc-tl-head' },
+                el('span', { className: 'kslc-tl-title' }, __('SEO文字リンクを編集', 'kashiwazaki-seo-link-card'))
+            ),
+            field(urlField),
+            field(blankField),
+            el('div', { className: 'kslc-tl-foot' },
+                el(Button, { variant: 'tertiary', onClick: function () { setMode('view'); }, __next40pxDefaultSize: true }, __('キャンセル', 'kashiwazaki-seo-link-card')),
+                el(Button, { variant: 'primary', onClick: update, disabled: !isHttpUrl(url), accessibleWhenDisabled: true, __next40pxDefaultSize: true }, __('保存', 'kashiwazaki-seo-link-card'))
+            )
+        );
+
+        return el(Fragment, {},
+            el(RichTextToolbarButton, {
+                icon: 'admin-links',
+                title: __('SEO文字リンク', 'kashiwazaki-seo-link-card'),
+                onClick: openAdd,
+                isActive: isActive
+            }),
+            isAdding && el(Modal, {
+                title: __('SEO文字リンクを追加', 'kashiwazaki-seo-link-card'),
+                className: 'kslc-tl-modal',
+                onRequestClose: function () { setAdding(false); }
+            },
+                el('p', { className: 'kslc-tl-note' },
+                    __('文中の普通のリンクとして表示します（カードにはなりません）。転送先への自動追随・rel の自動付与・リンク切れの検知・クリック計測はカードと同じく効きます。', 'kashiwazaki-seo-link-card')),
+                field(urlField),
+                field(el(TextControl, {
+                    label: __('リンク文字', 'kashiwazaki-seo-link-card'),
+                    value: text,
+                    onChange: setText,
+                    help: __('空のときは選んだ文字、または URL をそのまま使います。', 'kashiwazaki-seo-link-card'),
+                    __nextHasNoMarginBottom: true,
+                    __next40pxDefaultSize: true
+                })),
+                field(blankField),
+                el('div', { className: 'kslc-tl-foot' },
+                    el(Button, { variant: 'tertiary', onClick: function () { setAdding(false); }, __next40pxDefaultSize: true }, __('キャンセル', 'kashiwazaki-seo-link-card')),
+                    el(Button, { variant: 'primary', onClick: add, disabled: !isHttpUrl(url), accessibleWhenDisabled: true, __next40pxDefaultSize: true }, __('リンクにする', 'kashiwazaki-seo-link-card'))
+                )
+            ),
+            isActive && isOpen && el(Popover, {
+                anchor: anchor,
+                placement: 'bottom-start',
+                offset: 8,
+                focusOnMount: mode === 'edit' ? 'firstElement' : false,
+                className: 'kslc-text-link-popover',
+                onClose: function () { setOpen(false); }
+            }, mode === 'edit' ? editPanel : viewPanel)
+        );
+    }
+
+    registerFormatType(FORMAT_NAME, settings);
+})(window.wp);

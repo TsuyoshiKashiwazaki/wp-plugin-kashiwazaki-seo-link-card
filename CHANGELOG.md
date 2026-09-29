@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.11] - 2026-09-29
+
+### Added
+- 文中の文字リンク `[linktext url="…" text="…"]`（正式名 `[kashiwazaki_seo_link_text]`、閉じタグなし）
+  - 出力は段落を壊さないインラインの `<a>` だけ（`div`・`blockquote` を出さない）。クラスは `kslc-text-link` と `kslc-text-link-external` / `kslc-text-link-internal`
+  - リンク先の決定（`url` / `post_id`・削除済み投稿の記録）、転送先への自動追随、内部/外部の判定、`target` と `rel`（rel の自動付与を含む）はカードと同じ関数を通す
+  - `text` を省くとリンク文字はリンク先のタイトル（`post_id` 指定は記事タイトル、それ以外は OGP のタイトル、取れなければ URL）
+  - 閉じタグ付きで書かれても壊さない（中身があれば `text` の代わりにリンク文字に使う。Shortcode API は同じタグの単独型と囲み型の混在を扱えず、前の閉じタグなしの `[linktext]` が後ろの閉じタグまで囲んでしまうため、中身に同じタグの開始が入っていたら中身を本文の続きとみなし、閉じタグを補って解析し直してリンクの後ろに出す）
+  - リンク先が決まらないときはリンクを外して文字だけを残す
+  - クリック計測の対象（統計画面にカードと同じく記録。タイトル欄にはリンク文字）
+  - ブロックエディターの書式「SEO文字リンク」（段落などのツールバーの ▼）。選んだ文字を目印付きの普通のリンク `<a class="kslc-textlink" href="…">` にする。エディター上でもリンクとして見え（破線の下線と ↗）、リンクの中をクリックするとリンク先を示す小窓が開き、「編集」で URL と新しいタブ、「リンク解除」で外せる（標準のリンクと同じ、表示→編集の 2 段階）。カードのブロックとは別
+  - 表示時に目印付きリンクの href（転送先への自動追随）・rel（rel 自動付与を含む）・クリック計測のクラスをそろえる。target はエディターの「新しいタブで開く」のとおりで、オフなら外部リンクでも同じタブで開く（カードと `[linktext]` の外部リンクは従来どおり既定で新しいタブ）（`the_content` の優先度 13、`WP_HTML_Tag_Processor` で属性だけを書き換え。WordPress 6.2 未満では書き換えず普通のリンクのまま）。プラグインを止めても普通のリンクとして残る
+
+- クリック統計を「どのページのどのリンクか」まで分けて数える
+  - クリックのたびに種類（カード / 文字リンク）とページ内の位置（上から何番目か。カードと文字リンクを通しで数える）を記録（統計テーブルに `link_type` / `link_pos` 列を追加。表の版 `kslc_db_version` = 2、プラグイン更新時は `plugins_loaded` で `dbDelta` が列を足す。既存の記録は消えない）
+  - ページ別の詳細を URL・種類・位置の組ごとの行にし、「位置」「種類」「リンク文字」の列を追加。同じ URL のカードと文字リンクも別の行になる。記録を始める前のクリックは「不明」
+  - ページ一覧のページ名から詳細へ移れるようにした。「ユニークリンク数」は「クリックされたリンク数」（URL・種類・位置の組の数）
+
+### Changed
+- 統計の詳細は、ページ一覧と同じくページの URL（`?` 以降を含む、`#` 以降は除く）ごとに集計する（広告パラメータ付きで開かれたページを選んだときに、パラメータ無しのページの数字が出ていた）。ページ名リンクの値は `rawurlencode` で渡し、集計の `LIKE` は `$wpdb->esc_like` で守る
+- リンク切れの定期チェックが `[linktext]` / `[kashiwazaki_seo_link_text]` と目印付きリンク（`class="kslc-textlink"`）も収集する。閉じタグ付きの中身に入ったショートコードも拾う
+- ショートコードのリンク先決定（`kslc_resolve_shortcode_target()`）・外部判定（`kslc_is_external_href()`）・target と rel の値（`kslc_link_attr_values()`）を関数に切り出し、カードと文字リンクで共通化（カードの出力は変更なし）
+
 ## [1.0.10] - 2026-09-28
 
 ### Added

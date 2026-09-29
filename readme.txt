@@ -4,7 +4,7 @@ Donate link: https://tsuyoshikashiwazaki.jp/
 Tags: link, card, seo, shortcode, ogp
 Requires at least: 5.0
 Tested up to: 6.5
-Stable tag: 1.0.10
+Stable tag: 1.0.11
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -15,6 +15,8 @@ A plugin to display a link as a card by fetching OGP data.
 This plugin allows you to display a link in a card format by simply using a shortcode. It fetches the OGP (Open Graph Protocol) data from the specified URL and displays the title, description, and thumbnail image in a clean and modern card.
 
 Usage: `[linkcard url="https://example.com"]`
+
+Inline text link (no card, same redirect following / auto rel / broken link check / click tracking): `[linktext url="https://example.com" text="Read more"]`
 
 == Installation ==
 
@@ -33,6 +35,12 @@ Yes, it caches the fetched OGP data for 24 hours using WordPress transients to i
 1. Example of a link card.
 
 == Changelog ==
+
+= 1.0.11 =
+* 追加: 文中の文字リンク `[linktext url="…" text="…"]`（正式名 `[kashiwazaki_seo_link_text]`）。段落を壊さないインラインの <a> だけを出力し、転送先への自動追随・rel の自動付与・リンク切れの検知・クリック計測はカードと同じ処理を通る。text を省くとリンク文字はリンク先のタイトル。ブロックエディターでは書式「SEO文字リンク」で目印付きの普通のリンクとして入れられ、エディター上でもリンクとして見え、クリックで URL などを直せる（「新しいタブで開く」をオフにしたリンクは外部でも同じタブで開く）
+* 変更: 統計の詳細は、ページ一覧と同じくパラメータ付きの URL ごとに集計する（パラメータ付きのページを選ぶと別のページの数字が出ていた）
+* 追加: クリック統計を「どのページのどのリンクか」まで分けて数える（種類 = カード / 文字リンク、位置 = ページの上から何番目か を記録。統計テーブルに列を追加し、更新時に自動で反映）
+* 変更: リンク切れの定期チェックが [linktext] と目印付きリンクも収集する
 
 = 1.0.10 =
 * 追加: 転送先への自動追随（301 / 308 で恒久的に移転したリンク先はリダイレクト後の最終 URL を href に使用。302 / 307 の一時的な転送には追随しない。転送後の URL にも #見出し を引き継ぐ。内部リンクは正規パーマリンクにそろえ、#見出し と ?パラメータ は保つ。管理画面で ON/OFF、既定 ON）

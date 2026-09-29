@@ -126,7 +126,7 @@ function kslc_enqueue_block_editor_assets() {
     wp_enqueue_script(
         'kslc-block-editor',
         plugin_dir_url( dirname( __FILE__ ) ) . 'assets/js/block-editor.js',
-        array( 'wp-blocks', 'wp-element', 'wp-editor', 'wp-components', 'wp-i18n' ),
+        array( 'wp-blocks', 'wp-element', 'wp-editor', 'wp-block-editor', 'wp-rich-text', 'wp-components', 'wp-i18n' ),
         kslc_asset_version( $script_path ),
         true
     );
@@ -141,3 +141,17 @@ function kslc_enqueue_block_editor_assets() {
     );
 }
 add_action( 'enqueue_block_editor_assets', 'kslc_enqueue_block_editor_assets' );
+
+/**
+ * 「SEO文字リンク」の小窓・追加画面のスタイル（エディター画面の文書に読み込む）
+ */
+function kslc_enqueue_text_link_editor_ui_style() {
+    $style_path = plugin_dir_path( dirname( __FILE__ ) ) . 'assets/css/editor.css';
+    wp_enqueue_style(
+        'kslc-text-link-editor-ui',
+        plugin_dir_url( dirname( __FILE__ ) ) . 'assets/css/editor.css',
+        array( 'wp-components' ),
+        kslc_asset_version( $style_path )
+    );
+}
+add_action( 'enqueue_block_editor_assets', 'kslc_enqueue_text_link_editor_ui_style' );
